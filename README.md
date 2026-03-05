@@ -1,2 +1,0 @@
-# excavator-system
-excavator system
