@@ -1,0 +1,122 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "挖掘机之家"
+			}
+		},
+		{
+			"path": "pages/machine/list",
+			"style": {
+				"navigationBarTitleText": "找挖机",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/demand/list",
+			"style": {
+				"navigationBarTitleText": "找活/找人",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/user/index",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			"path": "pages/machine/detail",
+			"style": {
+				"navigationBarTitleText": "设备详情"
+			}
+		},
+		{
+			"path": "pages/machine/add",
+			"style": {
+				"navigationBarTitleText": "发布设备"
+			}
+		},
+		{
+			"path": "pages/contract/list",
+			"style": {
+				"navigationBarTitleText": "我的合同"
+			}
+		},
+		{
+			"path": "pages/contract/create",
+			"style": {
+				"navigationBarTitleText": "发起合同"
+			}
+		},
+		{
+			"path": "pages/contract/detail",
+			"style": {
+				"navigationBarTitleText": "合同详情"
+			}
+		},
+		{
+			"path": "pages/record/list",
+			"style": {
+				"navigationBarTitleText": "记账本"
+			}
+		},
+		{
+			"path": "pages/record/add",
+			"style": {
+				"navigationBarTitleText": "记一笔"
+			}
+		},
+		{
+			"path": "pages/demand/add",
+			"style": {
+				"navigationBarTitleText": "发布需求"
+			}
+		},
+		{
+			"path": "pages/demand/detail",
+			"style": {
+				"navigationBarTitleText": "需求详情"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "挖掘机行业小程序",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#FFB800",
+		"borderStyle": "black",
+		"backgroundColor": "#FFFFFF",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-active.png",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/machine/list",
+				"iconPath": "static/tabbar/search.png",
+				"selectedIconPath": "static/tabbar/search-active.png",
+				"text": "找挖机"
+			},
+			{
+				"pagePath": "pages/demand/list",
+				"iconPath": "static/tabbar/list.png",
+				"selectedIconPath": "static/tabbar/list-active.png",
+				"text": "需求"
+			},
+			{
+				"pagePath": "pages/user/index",
+				"iconPath": "static/tabbar/user.png",
+				"selectedIconPath": "static/tabbar/user-active.png",
+				"text": "我的"
+			}
+		]
+	}
+}
