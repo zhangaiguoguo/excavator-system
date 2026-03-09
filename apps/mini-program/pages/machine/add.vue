@@ -14,20 +14,36 @@
 				</uni-forms-item>
 				<view class="form-row">
 					<uni-forms-item label="租赁价格" name="rentAmount" required class="flex1">
-						<view class="w-half">
-							<uni-easyinput type="number" v-model="form.rentAmount" placeholder="请输入"></uni-easyinput>
-						</view>
-						<view class="w-half">
-							<uni-data-select v-model="form.rentUnit" :localdata="rentUnitOptions"
-								placeholder="单位"></uni-data-select>
+						<view class="w-full">
+							<view class="w-half">
+								<uni-easyinput type="number" v-model="form.rentAmount" placeholder="请输入"></uni-easyinput>
+							</view>
+							<view class="w-half">
+								<uni-data-select v-model="form.rentUnit" :localdata="rentUnitOptions"
+									placeholder="单位"></uni-data-select>
+							</view>
 						</view>
 					</uni-forms-item>
 				</view>
 				<uni-forms-item label="可租赁时段" required>
 					<view class="date-row">
-						<uni-easyinput type="date" v-model="form.rentStartDate" placeholder="开始日期"></uni-easyinput>
+						<uni-datetime-picker
+							type="date"
+							v-model="form.rentStartDate"
+							:start="''"
+							:end="''"
+							:clear-icon="false"
+							placeholder="开始日期"
+						/>
 						<text class="to">至</text>
-						<uni-easyinput type="date" v-model="form.rentEndDate" placeholder="结束日期"></uni-easyinput>
+						<uni-datetime-picker
+							type="date"
+							v-model="form.rentEndDate"
+							:start="form.rentStartDate || ''"
+							:end="''"
+							:clear-icon="false"
+							placeholder="结束日期"
+						/>
 					</view>
 					<view class="checkbox-row">
 						<uni-data-checkbox v-model="form.isLongTerm"

@@ -60,3 +60,7 @@ scroll-view {
 .justify-end {
 	justify-content: flex-end;
 }
+
+.w-half{
+	width: 50%;
+}

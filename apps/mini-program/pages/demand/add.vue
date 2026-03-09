@@ -14,9 +14,20 @@
       </uni-forms-item>
       <uni-forms-item label="需求时段" required>
         <view class="date-row">
-          <uni-easyinput type="date" v-model="form.startDate" placeholder="开始日期"></uni-easyinput>
+          <uni-datetime-picker
+            type="date"
+            v-model="form.startDate"
+            :clear-icon="false"
+            placeholder="开始日期"
+          />
           <text class="to">至</text>
-          <uni-easyinput type="date" v-model="form.endDate" placeholder="结束日期"></uni-easyinput>
+          <uni-datetime-picker
+            type="date"
+            v-model="form.endDate"
+            :start="form.startDate || ''"
+            :clear-icon="false"
+            placeholder="结束日期"
+          />
         </view>
       </uni-forms-item>
       <view class="form-row">
