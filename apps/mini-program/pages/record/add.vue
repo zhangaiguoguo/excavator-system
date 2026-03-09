@@ -63,7 +63,7 @@ export default {
     },
     submit() {
       this.$refs.form.validate().then(res => {
-        uni.showToast({ title: '保存成功', icon: 'success' });
+        this.$tip.success('保存成功');
         setTimeout(() => uni.navigateBack(), 1500);
       }).catch(err => {
         console.log('表单错误信息：', err);

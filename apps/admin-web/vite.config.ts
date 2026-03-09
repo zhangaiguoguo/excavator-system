@@ -9,7 +9,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src')
+      '@': path.resolve(__dirname, 'src'),
+      '@excavator/types': path.resolve(__dirname, '../../packages/types/src/index.ts')
     }
   }
 })

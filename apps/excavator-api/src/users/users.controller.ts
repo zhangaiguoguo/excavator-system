@@ -39,15 +39,17 @@ export class UsersController {
     return this.usersService.create(user);
   }
 
-  @Put(':id')
-  update(
-    @Param('id') id: string,
-    @Body() user: Partial<User>,
-  ): Promise<User | null> {
-    return this.usersService.update(id, user);
+  @Post('/update')
+  update(@Body() user: Partial<User>): Promise<User | null> {
+    return this.usersService.update(user.id as string, user);
   }
 
-  @Put(':id/password')
+  @Post('/authorizeRealName')
+  authorizeRealName(@Body() body: Partial<User>): Promise<User | null> {
+    return this.usersService.authorizeRealName(body);
+  }
+
+  @Post(':id/password')
   updatePassword(@Param('id') id: string, @Body() body: any): Promise<any> {
     return this.usersService.updatePassword(
       id,

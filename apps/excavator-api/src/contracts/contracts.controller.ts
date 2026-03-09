@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Query } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { Contract } from './contract.entity';
 
@@ -7,8 +7,16 @@ export class ContractsController {
   constructor(private readonly contractsService: ContractsService) {}
 
   @Get()
-  findAll(): Promise<Contract[]> {
-    return this.contractsService.findAll();
+  findAll(
+    @Query('userId') userId?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : undefined;
+    const pageSizeNum = pageSize ? parseInt(pageSize, 10) : undefined;
+    const statusNum = status !== undefined && status !== '' ? parseInt(status, 10) : undefined;
+    return this.contractsService.findAll(userId, pageNum, pageSizeNum, statusNum);
   }
 
   @Get(':id')

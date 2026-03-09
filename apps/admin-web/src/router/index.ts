@@ -63,6 +63,18 @@ export const asyncRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/system/role/index.vue'),
         name: 'Role',
         meta: { title: '角色管理', icon: 'peoples', roles: ['admin'] }
+      },
+      {
+        path: 'dict',
+        component: () => import('@/views/system/dict/index.vue'),
+        name: 'Dict',
+        meta: { title: '字典管理', icon: 'dict', roles: ['admin'] }
+      },
+      {
+        path: 'dict-data/:dictType',
+        component: () => import('@/views/system/dict/data.vue'),
+        name: 'DictData',
+        meta: { title: '字典数据', icon: 'dict', roles: ['admin'], hidden: true, activeMenu: '/system/dict' }
       }
     ]
   },

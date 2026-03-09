@@ -13,8 +13,8 @@ export class Order {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ type: 'tinyint' })
-  type: number; // 1-Rental, 2-Recruitment
+  @Column({ length: 64 })
+  type: string; // dict: demand_type 1求租设备 2招聘机手
 
   @Column({ name: 'machine_types', type: 'json' })
   machineTypes: string[];
@@ -46,11 +46,17 @@ export class Order {
   @Column({ type: 'text' })
   description: string;
 
-  @Column({ name: 'is_urgent', type: 'tinyint', default: 0 })
-  isUrgent: number;
+  @Column({ type: 'json', nullable: true })
+  images: string[];
 
-  @Column({ type: 'tinyint', default: 1 })
-  status: number; // 0-Closed, 1-Active, 2-Completed
+  @Column({ length: 512, nullable: true })
+  video: string;
+
+  @Column({ name: 'is_urgent', length: 1, default: 'N' })
+  isUrgent: string; // dict: sys_yes_no
+
+  @Column({ length: 64, default: '1' })
+  status: string; // dict: demand_status 0已关闭 1进行中 2已完成
 
   @Column({ name: 'view_count', default: 0 })
   viewCount: number;
@@ -61,6 +67,6 @@ export class Order {
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
 
-  @UpdateDateColumn({ name: 'update_time' })
+  @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;
 }

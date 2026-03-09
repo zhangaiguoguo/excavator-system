@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User as IUser } from '@excavator/types';
 
 @Entity('t_user')
@@ -12,13 +18,13 @@ export class User implements IUser {
   @Column({ name: 'union_id', length: 64, nullable: true })
   unionId: string;
 
-  @Column({ length: 20 })
+  @Column({ length: 512 })
   phone: string;
 
   @Column({ length: 50, nullable: true })
   nickname: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   avatar: string;
 
   @Column({ type: 'tinyint', default: 0 })
@@ -27,10 +33,10 @@ export class User implements IUser {
   @Column({ type: 'tinyint', default: 1 })
   role: number;
 
-  @Column({ name: 'real_name', length: 50, nullable: true })
+  @Column({ name: 'real_name', length: 512, nullable: true })
   realName: string;
 
-  @Column({ name: 'id_card', length: 32, nullable: true })
+  @Column({ name: 'id_card', length: 512, nullable: true })
   idCard: string;
 
   @Column({ name: 'real_name_status', type: 'tinyint', default: 0 })
@@ -51,7 +57,7 @@ export class User implements IUser {
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
 
-  @UpdateDateColumn({ name: 'update_time' })
+  @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;
 
   @Column({ length: 100, nullable: true })

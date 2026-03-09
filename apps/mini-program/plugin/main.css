@@ -1,0 +1,62 @@
+view,
+scroll-view {
+	box-sizing: border-box;
+}
+
+.ml-2 {
+	margin-left: 12rpx;
+}
+
+.mr-2 {
+	margin-right: 12rpx;
+}
+
+.p-2 {
+	padding: 12rpx;
+}
+
+.pr {
+	padding-right: 12rpx;
+}
+
+.pl {
+	padding-left: 12rpx;
+}
+
+.ml-4 {
+	margin-left: 24rpx;
+}
+
+.mt-2 {
+	margin-top: 12rpx;
+}
+
+.mt-4 {
+	margin-top: 24rpx;
+}
+
+
+.flex {
+	display: flex;
+}
+
+.justify-center {
+	justify-content: center;
+}
+
+.align-center {
+	align-items: center;
+
+}
+
+.h-full {
+	height: 100%;
+}
+
+.w-full {
+	height: 100%;
+}
+
+.justify-end {
+	justify-content: flex-end;
+}

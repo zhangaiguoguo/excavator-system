@@ -11,11 +11,28 @@ export class ContractsService {
     private contractsRepository: Repository<Contract>,
   ) {}
 
-  findAll(): Promise<Contract[]> {
-    return this.contractsRepository.find({
-      relations: ['lessor', 'lessee', 'machine'],
-      order: { createTime: 'DESC' },
-    });
+  async findAll(
+    userId?: string,
+    page?: number,
+    pageSize?: number,
+    status?: number,
+  ): Promise<{ list: Contract[]; total: number }> {
+    const p = Math.max(1, page ?? 1);
+    const ps = Math.min(50, Math.max(1, pageSize ?? 10));
+    const qb = this.contractsRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.lessor', 'lessor')
+      .leftJoinAndSelect('c.lessee', 'lessee')
+      .leftJoinAndSelect('c.machine', 'machine')
+      .orderBy('c.createTime', 'DESC');
+    if (userId) {
+      qb.andWhere('(c.lessorId = :userId OR c.lesseeId = :userId)', { userId });
+    }
+    if (status !== undefined && status !== null) {
+      qb.andWhere('c.status = :status', { status });
+    }
+    const [list, total] = await qb.skip((p - 1) * ps).take(ps).getManyAndCount();
+    return { list, total };
   }
 
   findOne(id: string): Promise<Contract | null> {

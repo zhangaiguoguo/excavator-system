@@ -3,7 +3,9 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "挖掘机之家"
+				"navigationBarTitleText": "挖掘机之家",
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -27,6 +29,38 @@
 			}
 		},
 		{
+			"path": "pages/user/info",
+			"style": {
+				"navigationBarTitleText": "我的信息"
+			}
+		},
+		{
+			"path": "pages/user/auth",
+			"style": {
+				"navigationBarTitleText": "实名认证"
+			}
+		},
+		{
+			"path": "pages/user/avatar-crop",
+			"style": {
+				"navigationBarTitleText": "裁剪头像"
+			}
+		},
+		{
+			"path": "pages/user/publish",
+			"style": {
+				"navigationBarTitleText": "我的发布",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/user/fav",
+			"style": {
+				"navigationBarTitleText": "我的收藏",
+				"enablePullDownRefresh": true
+			}
+		},
+		{
 			"path": "pages/machine/detail",
 			"style": {
 				"navigationBarTitleText": "设备详情"
@@ -41,7 +75,8 @@
 		{
 			"path": "pages/contract/list",
 			"style": {
-				"navigationBarTitleText": "我的合同"
+				"navigationBarTitleText": "我的合同",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -83,9 +118,9 @@
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "挖掘机行业小程序",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"navigationBarTitleText": "挖掘机之家",
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"backgroundColor": "#F5F6F8"
 	},
 	"tabBar": {
 		"color": "#999999",

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -14,6 +15,18 @@ import { Machine } from './machines/machine.entity';
 import { Contract } from './contracts/contract.entity';
 import { Record } from './records/record.entity';
 import { Order } from './orders/order.entity';
+import { Job } from './jobs/job.entity';
+import { Favorite } from './favorites/favorite.entity';
+import { DictModule } from './system/dict/dict.module';
+import { JobsModule } from './jobs/jobs.module';
+import { FavoritesModule } from './favorites/favorites.module';
+import { DictType } from './system/dict/entities/dict-type.entity';
+import { DictData } from './system/dict/entities/dict-data.entity';
+import { FileModule } from './file/file.module';
+import { CryptoModule } from './common/crypto/crypto.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { GeoModule } from './geo/geo.module';
 
 @Module({
   imports: [
@@ -31,18 +44,34 @@ import { Order } from './orders/order.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [User, Machine, Contract, Record, Order],
+        entities: [User, Machine, Contract, Record, Order, Job, Favorite, DictType, DictData],
         synchronize: configService.get<boolean>('DB_SYNCHRONIZE'),
       }),
     }),
+    CryptoModule,
     UsersModule,
     MachinesModule,
     ContractsModule,
     RecordsModule,
     OrdersModule,
+    JobsModule,
+    FavoritesModule,
     AuthModule,
+    DictModule,
+    FileModule,
+    GeoModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
+  ],
 })
 export class AppModule {}

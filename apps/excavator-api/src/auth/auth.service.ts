@@ -1,10 +1,16 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, HttpException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { ConfigService } from '@nestjs/config';
-import { LoginResponse } from '@excavator/types';
+import {
+  Constants,
+  LoginResponse,
+  User,
+  UserRealNameStatus,
+  UserRole,
+} from '@excavator/types';
 
 @Injectable()
 export class AuthService {
@@ -47,14 +53,15 @@ export class AuthService {
           };
         };
         if (data.errcode) {
-          throw new UnauthorizedException(`WeChat API Error: ${data.errmsg}`);
+          throw new Error(`微信API调用失败！`);
         }
         openid = data.openid;
         sessionKey = data.session_key;
         unionid = data.unionid;
       } catch (error: any) {
-        throw new UnauthorizedException(
-          `Failed to authenticate with WeChat -> ${error + ''}`,
+        throw new HttpException(
+          `微信登录失败: ${error.response?.data?.errmsg || error.message}`,
+          500,
         );
       }
     }
@@ -77,6 +84,8 @@ export class AuthService {
           this.httpService.post(phoneUrl, { code: phoneCode }),
         );
 
+        console.log('Phone number response:', phoneRes.data);
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (phoneRes.data.errcode === 0) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
@@ -90,10 +99,13 @@ export class AuthService {
     // 3. Find or create/update user
     let user = (await this.usersService.findByOpenId(openid)) as any;
 
-    const userData: any = {
+    const userData: Partial<User> = {
       wxOpenid: openid,
       unionId: unionid,
       lastLoginAt: new Date(),
+      nickname: user?.nickname,
+      gender: user?.gender,
+      avatar: user?.avatar,
     };
 
     if (phoneNumber) {
@@ -101,15 +113,16 @@ export class AuthService {
     }
 
     if (userInfo) {
-      userData.nickname = userInfo.nickName;
-      userData.avatar = userInfo.avatarUrl;
-      userData.gender = userInfo.gender;
+      userData.nickname ??= userInfo.nickName;
+      userData.avatar ??= userInfo.avatarUrl;
+      userData.gender ??= userInfo.gender;
     }
 
     if (!user) {
       // Create new user
-      userData.role = 1; // Default role
-      if (!userData.phone) userData.phone = 'Unknown'; // Placeholder if no phone
+      userData.role = UserRole.UNKNOWN; // Default role
+      if (!userData.phone) userData.phone = Constants.DEFAULT_PHOTO; // Placeholder if no phone
+      userData.realNameStatus = UserRealNameStatus.NOT_SUBMITTED; // Default real name status
       user = await this.usersService.create(userData);
     } else {
       // Update existing user
@@ -121,6 +134,15 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(payload),
       user: user,
+    };
+  }
+
+  async generateTempToken() {
+    // Generate a temporary token for guests/initial access
+    // This token might have limited permissions or just identify a session
+    const payload = { sub: 'temp', role: 'guest', isTemp: true };
+    return {
+      access_token: this.jwtService.sign(payload), // Short lived
     };
   }
 }

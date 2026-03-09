@@ -14,25 +14,34 @@ export class Machine {
   user: User;
 
   @Column({ length: 64 })
-  type: string; // Dictionary: machine_type
+  type: string; // dict: machine_type 挖斗/炮头/挖掘机整机/其他
 
-  @Column({ length: 50 })
+  @Column({ length: 50, nullable: true })
   brand: string;
 
-  @Column({ length: 50 })
+  @Column({ length: 100 })
   model: string;
 
-  @Column({ type: 'year' })
+  @Column({ type: 'int', nullable: true })
   year: number;
 
-  @Column({ name: 'work_hours', length: 64 })
-  workHours: string; // Dictionary: work_hours_unit
+  @Column({ name: 'condition_type', length: 64 })
+  conditionType: string; // dict: machine_condition 全新/9成新/8成新/7成新及以下
 
   @Column({ name: 'rent_amount', type: 'decimal', precision: 10, scale: 2 })
   rentAmount: number;
 
   @Column({ name: 'rent_unit', length: 64 })
-  rentUnit: string; // Dictionary: work_hours_unit
+  rentUnit: string; // dict: work_hours_unit 元/小时、元/天、元/月
+
+  @Column({ name: 'rent_start_date', type: 'date' })
+  rentStartDate: Date;
+
+  @Column({ name: 'rent_end_date', type: 'date' })
+  rentEndDate: Date;
+
+  @Column({ name: 'is_long_term', length: 1, default: 'N' })
+  isLongTerm: string; // dict: sys_yes_no
 
   @Column({ length: 50 })
   province: string;
@@ -43,6 +52,9 @@ export class Machine {
   @Column({ length: 50 })
   district: string;
 
+  @Column({ length: 50, nullable: true })
+  town: string;
+
   @Column({ length: 200 })
   address: string;
 
@@ -52,17 +64,20 @@ export class Machine {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitude: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ length: 500, nullable: true })
   description: string;
 
   @Column({ type: 'json' })
   images: string[];
 
+  @Column({ length: 512, nullable: true })
+  video: string;
+
   @Column({ length: 64, default: '1' })
-  status: string; // Dictionary: machine_status
+  status: string; // dict: machine_status
 
   @Column({ name: 'is_top', length: 1, default: 'N' })
-  isTop: string; // Dictionary: sys_yes_no
+  isTop: string;
 
   @Column({ name: 'top_expire_at', type: 'datetime', nullable: true })
   topExpireAt: Date;
@@ -76,6 +91,6 @@ export class Machine {
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
 
-  @UpdateDateColumn({ name: 'update_time' })
+  @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;
 }

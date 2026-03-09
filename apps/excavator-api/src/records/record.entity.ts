@@ -50,6 +50,6 @@ export class Record {
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
 
-  @UpdateDateColumn({ name: 'update_time' })
+  @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;
 }

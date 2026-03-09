@@ -1,113 +1,186 @@
 <template>
-  <view class="container">
-    <uni-card :title="demand.title" :extra="demand.budget">
-      <view class="tag-row">
-        <uni-tag :text="demand.type === 1 ? '找设备' : '找机手'" type="primary" size="small"></uni-tag>
-        <uni-tag :text="getStatusText(demand.status)" :type="demand.status === 1 ? 'success' : 'default'" size="small" style="margin-left: 10px;"></uni-tag>
-      </view>
-      
-      <view class="info-row">
-        <uni-icons type="location" size="16" color="#666"></uni-icons>
-        <text class="info-text">{{ demand.location }}</text>
-      </view>
-      <view class="info-row">
-        <uni-icons type="calendar" size="16" color="#666"></uni-icons>
-        <text class="info-text">工期：{{ demand.duration }}</text>
-      </view>
-      <view class="info-row">
-        <uni-icons type="person" size="16" color="#666"></uni-icons>
-        <text class="info-text">发布人：{{ demand.contactName }}</text>
-      </view>
-      
-      <view class="desc-box">
-        <text class="desc-title">详细描述</text>
-        <text class="desc-content">{{ demand.description }}</text>
-      </view>
-    </uni-card>
-    
-    <view class="footer-bar">
-      <button type="primary" @click="contactUser">联系对方</button>
+  <view class="page">
+    <view v-if="loading" class="loading-wrap">
+      <uni-load-more status="loading" />
     </view>
+    <template v-else-if="demand.id">
+      <!-- 类型与状态 -->
+      <view class="card head-card">
+        <view class="tag-row">
+          <text class="tag type-tag">{{ demand.type === '2' ? '招聘机手' : '求租设备' }}</text>
+          <text class="tag status-tag">{{ statusText }}</text>
+        </view>
+        <view class="budget-row">
+          <text class="label">预算</text>
+          <text class="budget">{{ budgetText(demand) }}</text>
+        </view>
+        <view class="date-row">
+          <uni-icons type="calendar" size="16" color="#999" />
+          <text>{{ dateStr(demand.startDate) }} 至 {{ dateStr(demand.endDate) }}</text>
+        </view>
+      </view>
+
+      <!-- 施工地址 -->
+      <view class="card">
+        <view class="section-title">施工地址</view>
+        <view class="addr-row">
+          <uni-icons type="location-filled" size="16" color="#4AB1F7" />
+          <text>{{ demand.province }}{{ demand.city }}{{ demand.district || '' }} {{ demand.address }}</text>
+        </view>
+      </view>
+
+      <!-- 需求描述 -->
+      <view class="card">
+        <view class="section-title">需求描述</view>
+        <text class="desc">{{ demand.description || '暂无' }}</text>
+      </view>
+
+      <!-- 发布人（机主/施工方） -->
+      <view class="card" v-if="demand.user">
+        <view class="section-title">发布人</view>
+        <view class="user-row">
+          <text>{{ demand.user.nickname || '用户' }}</text>
+          <text class="phone" @click="contactUser">{{ demand.user.phone || '暂无电话' }}</text>
+        </view>
+      </view>
+
+      <!-- 底部操作 -->
+      <view class="footer-bar">
+        <button class="btn-contact" @click="contactUser">联系对方</button>
+        <button
+          v-if="demand.status === '1' && !isMyDemand"
+          type="primary"
+          class="btn-order"
+          @click="goTakeOrder"
+        >
+          接单（发起合同）
+        </button>
+      </view>
+    </template>
+    <view v-else class="empty">需求不存在或已下架</view>
+    <view class="safe-bottom" />
   </view>
 </template>
 
 <script>
+import apiService from '@/api/api';
+import appStore from '@/store/app';
+
 export default {
   data() {
     return {
-      demand: {}
-    }
+      demand: {},
+      loading: true,
+    };
+  },
+  computed: {
+    statusText() {
+      const s = this.demand.status;
+      if (s === '0') return '已关闭';
+      if (s === '2') return '已完成';
+      return '进行中';
+    },
+    isMyDemand() {
+      const uid = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
+      return String(this.demand.userId) === String(uid);
+    },
   },
   onLoad(options) {
-    this.fetchDetail(options.id);
+    if (options.id) this.fetchDetail(options.id);
+    else this.loading = false;
   },
   methods: {
     fetchDetail(id) {
-      // Mock data
-      setTimeout(() => {
-        this.demand = {
-          id: id,
-          type: 1,
-          title: '急需 200 型挖掘机 2 台',
-          location: '南京市江宁区麒麟街道',
-          duration: '30天',
-          budget: '2000元/天',
-          status: 1,
-          contactName: '李经理',
-          description: '工地土方作业，要求车况良好，带破碎锤。包吃住，结账爽快。'
-        };
-      }, 300);
+      this.loading = true;
+      apiService
+        .getDemand(id)
+        .then((res) => {
+          const data = res?.data ?? res;
+          this.demand = data || {};
+        })
+        .catch(() => {
+          this.demand = {};
+        })
+        .finally(() => {
+          this.loading = false;
+        });
     },
-    getStatusText(status) {
-      return status === 1 ? '进行中' : '已结束';
+    dateStr(d) {
+      if (!d) return '';
+      if (typeof d === 'string') return d.slice(0, 10);
+      if (d instanceof Date) return d.toISOString().slice(0, 10);
+      return '';
+    },
+    budgetText(item) {
+      if (item.budgetMin != null && item.budgetMax != null)
+        return item.budgetMin + '-' + item.budgetMax + '元';
+      if (item.budgetMin != null) return item.budgetMin + '元起';
+      if (item.budgetMax != null) return '≤' + item.budgetMax + '元';
+      return '面议';
     },
     contactUser() {
-      uni.makePhoneCall({ phoneNumber: '13900139000' });
-    }
-  }
-}
+      const phone = this.demand?.user?.phone;
+      if (phone) uni.makePhoneCall({ phoneNumber: String(phone) });
+      else this.$tip.alert('暂无联系方式');
+    },
+    goTakeOrder() {
+      // 接单 = 去发起合同，关联本需求 + 选择我的设备
+      uni.navigateTo({
+        url: '/pages/contract/create?demandId=' + this.demand.id,
+      });
+    },
+  },
+};
 </script>
 
-<style>
-.container {
-  padding: 10px;
+<style lang="scss" scoped>
+.page {
+  min-height: 100vh;
+  background: #F5F6F8;
+  padding: 16px;
+  padding-bottom: 100px;
 }
-.tag-row {
-  margin-bottom: 15px;
+.loading-wrap {
+  padding: 40px 0;
 }
-.info-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 16px;
+  margin-bottom: 12px;
 }
-.info-text {
-  margin-left: 5px;
-  color: #333;
-  font-size: 14px;
+.head-card {
+  .tag-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tag { padding: 4px 10px; border-radius: 8px; font-size: 12px; }
+  .type-tag { background: #e8f4fd; color: #4AB1F7; }
+  .status-tag { background: #f0f2f5; color: #666; }
+  .budget-row { margin-bottom: 8px; }
+  .label { font-size: 13px; color: #999; margin-right: 8px; }
+  .budget { font-size: 18px; font-weight: 700; color: #FF4D4F; }
+  .date-row { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; }
 }
-.desc-box {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
+.section-title {
+  font-size: 14px; color: #999; margin-bottom: 8px;
 }
-.desc-title {
-  font-weight: bold;
-  font-size: 15px;
-  margin-bottom: 10px;
-  display: block;
+.addr-row, .user-row {
+  display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333;
 }
-.desc-content {
-  color: #666;
-  font-size: 14px;
-  line-height: 1.6;
-}
+.desc { font-size: 14px; color: #333; line-height: 1.6; display: block; }
+.user-row .phone { color: #4AB1F7; margin-left: auto; }
 .footer-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 15px;
-  background-color: #fff;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+  padding-bottom: calc(12px + constant(safe-area-inset-bottom));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
+.btn-contact { flex: 1; border-radius: 24px; background: #F1F2F4; color: #333; border: none; }
+.btn-order { flex: 1; border-radius: 24px; border: none; }
+.safe-bottom { height: env(safe-area-inset-bottom); }
+.empty { text-align: center; padding: 60px 20px; color: #999; }
 </style>
