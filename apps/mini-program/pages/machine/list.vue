@@ -3,12 +3,8 @@
 		<!-- 搜索与筛选栏 -->
 		<view class="header">
 			<view class="search-row">
-				<uni-search-bar v-model="keyword" placeholder="搜索品牌/型号/描述" bgColor="#f0f2f5" radius="20"
+				<uni-search-bar v-model="keyword" placeholder="搜索品牌/型号/描述" bgColor="#f0f2f5" radius="20" class="w-full"
 					@confirm="onSearch" @clear="onSearch" />
-				<view class="locate-btn" @click="onLocate">
-					<uni-icons type="location-filled" size="22" color="#FF8F00"></uni-icons>
-					<text>定位</text>
-				</view>
 			</view>
 			<view class="filter-row">
 				<view v-for="item in filterTabs" :key="item.key" class="filter-tab"
@@ -29,7 +25,7 @@
 					<view class="section-label">设备类型</view>
 					<view class="dict-options">
 						<view v-for="opt in dictOptions.machine_type" :key="opt.value" class="dict-option"
-							:class="{ on: filter.type === opt.value }" @click="filter.type = opt.value">
+							:class="{ on: (filter.type || []).includes(opt.value) }" @click="toggleType(opt.value)">
 							{{ opt.text }}
 						</view>
 					</view>
@@ -55,12 +51,16 @@
 				</view>
 				<!-- 地区 -->
 				<view v-else-if="filterActive === 'area'" class="popup-section">
-					<view class="section-label">省份</view>
-					<uni-easyinput v-model="filter.province" placeholder="如：湖南省"></uni-easyinput>
-					<view class="section-label">城市</view>
-					<uni-easyinput v-model="filter.city" placeholder="如：长沙市"></uni-easyinput>
-					<view class="section-label">区县</view>
-					<uni-easyinput v-model="filter.district" placeholder="选填"></uni-easyinput>
+					<view class="section-label">选择方式</view>
+					<view class="area-actions">
+						<button class="area-btn" @click="pickCurrentArea">选当前位置</button>
+						<button class="area-btn ghost" @click="pickAreaFromMap">地图选点</button>
+					</view>
+					<view class="area-selected">
+						<uni-icons type="location-filled" size="16" color="#FF8F00" />
+						<text class="area-text">{{ areaText || '未选择' }}</text>
+						<text v-if="areaText" class="area-clear" @click="clearArea">清空</text>
+					</view>
 				</view>
 				<!-- 排序 -->
 				<view v-else-if="filterActive === 'sort'" class="popup-section">
@@ -82,16 +82,14 @@
 		<view class="list">
 			<view v-for="item in machines" :key="item.id" class="card" @click="goDetail(item.id)">
 				<view class="card-media">
-					<swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1">
+					<swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1"
+						@change="onCardSwiperChange(item, $event)">
 						<swiper-item v-for="(m, idx) in mediaItems(item)" :key="idx">
-							<image
-								v-if="m.type === 'image'"
-								class="card-img"
-								:src="getFileViewUrl(m.value) || '/static/default_machine.png'"
-								mode="aspectFill"
-							/>
+							<image v-if="m.type === 'image'" class="card-img"
+								:src="getFileViewUrl(m.value) || '/static/default_machine.png'" mode="aspectFill" />
 							<view v-else class="card-video-wrap" @click.stop>
-								<video class="card-img" :src="getFileViewUrl(m.value)" controls />
+								<video :id="'video-m-' + item.id" class="card-img" :src="getFileViewUrl(m.value)"
+									controls />
 								<view class="video-badge">视频</view>
 							</view>
 						</swiper-item>
@@ -100,10 +98,10 @@
 				<view class="card-body">
 					<view class="card-title-row">
 						<text
-							class="card-title">{{ item.model || (item.brand && item.brand + ' ') || '' }}{{ item.model }}</text>
+							class="card-title">{{ transformDictValue(item.type,dictOptions.machine_type) }} {{ item.model }} {{item.brand??""}}</text>
 						<uni-tag v-if="item.isTop === 'Y'" text="置顶" type="error" size="mini" circle />
 					</view>
-					<view class="card-meta">
+					<view class="card-meta mt-2">
 						<uni-icons type="location-filled" size="14" color="#999" />
 						<text>{{ item.province }} {{ item.city }}</text>
 						<text class="dot">·</text>
@@ -115,13 +113,16 @@
 							<text class="num">{{ item.rentAmount }}</text>
 							<text class="unit">/{{ rentUnitLabel(item.rentUnit) }}</text>
 						</view>
+					</view>
+					<view class="mt-2">
 						<button class="btn-call" @click.stop="contactOwner(item)">联系机主</button>
 					</view>
 				</view>
 			</view>
 		</view>
 
-		<uni-load-more :status="loading ? 'loading' : (loadingMore ? 'loading' : (machines.length >= total && total > 0 ? 'noMore' : (machines.length > 0 ? 'more' : 'noMore')))" />
+		<uni-load-more
+			:status="loading ? 'loading' : (loadingMore ? 'loading' : (machines.length >= total && total > 0 ? 'noMore' : (machines.length > 0 ? 'more' : 'noMore')))" />
 		<view v-if="machines.length === 0 && !loading" class="empty">
 			<uni-icons type="info-filled" size="64" color="#ddd" />
 			<text>暂无相关设备</text>
@@ -134,9 +135,18 @@
 </template>
 
 <script>
-	import apiService, { getFileViewUrl } from '@/api/api';
-	import { useDictOne } from '@/hooks/useDict';
-	import { tryRefreshList } from '@/common/util/listRefresh.js';
+	import apiService, {
+		getFileViewUrl
+	} from '@/api/api';
+	import {
+		useDictOne
+	} from '@/hooks/useDict';
+	import {
+		tryRefreshList
+	} from '@/common/util/listRefresh.js';
+	import {
+		transformDictValue
+	} from '@/common/util/util';
 
 	export default {
 		data() {
@@ -150,7 +160,7 @@
 				total: 0,
 				filterActive: '',
 				filter: {
-					type: '',
+					type: [],
 					condition: '',
 					priceMin: '',
 					priceMax: '',
@@ -163,6 +173,7 @@
 					latitude: null,
 					longitude: null
 				},
+				areaText: '',
 				filterTabs: [{
 						key: 'type',
 						label: '类型'
@@ -221,16 +232,33 @@
 			this.fetchMachines(true).finally(() => uni.stopPullDownRefresh());
 		},
 		methods: {
+			transformDictValue,
 			getFileViewUrl,
+			toggleType(v) {
+				const arr = Array.isArray(this.filter.type) ? this.filter.type : [];
+				const idx = arr.indexOf(v);
+				if (idx >= 0) arr.splice(idx, 1);
+				else arr.push(v);
+				this.filter.type = arr;
+			},
 			imageUrl(images) {
 				return images && images[0] ? getFileViewUrl(images[0]) : '';
 			},
 			mediaItems(item) {
 				const list = [];
-				if (item.video) list.push({ type: 'video', value: item.video });
+				if (item.video) list.push({
+					type: 'video',
+					value: item.video
+				});
 				const imgs = Array.isArray(item.images) ? item.images : [];
-				imgs.forEach(img => list.push({ type: 'image', value: img }));
-				if (list.length === 0) list.push({ type: 'image', value: null });
+				imgs.forEach(img => list.push({
+					type: 'image',
+					value: img
+				}));
+				if (list.length === 0) list.push({
+					type: 'image',
+					value: null
+				});
 				return list;
 			},
 			conditionLabel(v) {
@@ -245,6 +273,85 @@
 			},
 			onSearch() {
 				this.fetchMachines();
+			},
+			initByLocation() {
+				uni.getLocation({
+					type: 'gcj02',
+					success: (res) => {
+						this.location = {
+							latitude: res.latitude,
+							longitude: res.longitude
+						};
+						this.filter.sort = 'distance';
+						this.fetchMachines(true);
+					},
+					fail: () => {
+						this.filter.sort = 'distance';
+						this.fetchMachines(true);
+					},
+				});
+			},
+			applyAreaFromRegeo(regeo) {
+				const province = regeo?.province || '';
+				const city = regeo?.city || '';
+				const district = regeo?.district || '';
+				this.filter.province = province;
+				this.filter.city = city;
+				this.filter.district = district;
+				this.areaText = [province, city, district].filter(Boolean).join(' ');
+			},
+			pickCurrentArea() {
+				uni.getLocation({
+					type: 'gcj02',
+					success: (res) => {
+						this.location = {
+							latitude: res.latitude,
+							longitude: res.longitude
+						};
+						apiService.regeoLocation({
+							longitude: res.longitude,
+							latitude: res.latitude,
+							extensions: 'base'
+						}).then((r) => {
+							const data = r?.data ?? r;
+							this.applyAreaFromRegeo(data);
+							this.$tip?.success?.('已选择当前位置');
+						}).catch(() => {
+							this.areaText = '当前位置';
+						});
+					},
+					fail: () => {
+						this.$tip?.error?.('请授权位置信息');
+					}
+				});
+			},
+			pickAreaFromMap() {
+				uni.chooseLocation({
+					success: (res) => {
+						if (res && res.latitude != null && res.longitude != null) {
+							this.location = {
+								latitude: res.latitude,
+								longitude: res.longitude
+							};
+							apiService.regeoLocation({
+								longitude: res.longitude,
+								latitude: res.latitude,
+								extensions: 'base'
+							}).then((r) => {
+								const data = r?.data ?? r;
+								this.applyAreaFromRegeo(data);
+							}).catch(() => {
+								this.areaText = res.name || res.address || '地图选点';
+							});
+						}
+					}
+				});
+			},
+			clearArea() {
+				this.filter.province = '';
+				this.filter.city = '';
+				this.filter.district = '';
+				this.areaText = '';
 			},
 			onLocate() {
 				uni.getLocation({
@@ -269,11 +376,11 @@
 				this.$refs.filterPopup.open();
 			},
 			resetFilter() {
-				if (this.filterActive === 'type') this.filter.type = '';
+				if (this.filterActive === 'type') this.filter.type = [];
 				else if (this.filterActive === 'condition') this.filter.condition = '';
 				else if (this.filterActive === 'price') this.filter.priceMin = this.filter.priceMax = '';
-				else if (this.filterActive === 'area') this.filter.province = this.filter.city = this.filter.district = '';
-				else if (this.filterActive === 'sort') this.filter.sort = 'latest';
+				else if (this.filterActive === 'area') this.clearArea();
+				else if (this.filterActive === 'sort') this.filter.sort = 'distance';
 			},
 			applyFilter() {
 				this.$refs.filterPopup.close();
@@ -286,8 +393,11 @@
 				} else {
 					this.loadingMore = true;
 				}
-				const params = { page: this.page, pageSize: this.pageSize };
-				if (this.filter.type) params.type = this.filter.type;
+				const params = {
+					page: this.page,
+					pageSize: this.pageSize
+				};
+				if (Array.isArray(this.filter.type) && this.filter.type.length) params.type = this.filter.type.join(',');
 				if (this.filter.condition) params.condition = this.filter.condition;
 				if (this.filter.priceMin) params.priceMin = this.filter.priceMin;
 				if (this.filter.priceMax) params.priceMax = this.filter.priceMax;
@@ -313,6 +423,14 @@
 					this.loading = false;
 					this.loadingMore = false;
 				});
+			},
+			onCardSwiperChange(item, e) {
+				const items = this.mediaItems(item);
+				const videoIdx = items.findIndex(m => m.type === 'video');
+				if (videoIdx >= 0 && e.detail.current !== videoIdx) {
+					const ctx = uni.createVideoContext('video-m-' + item.id, this);
+					if (ctx && ctx.pause) ctx.pause();
+				}
 			},
 			loadMore() {
 				if (this.loading || this.loadingMore) return;
@@ -360,14 +478,6 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
-
-		.locate-btn {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			font-size: 11px;
-			color: #FF8F00;
-		}
 	}
 
 	.filter-row {
@@ -423,6 +533,44 @@
 				color: #999;
 			}
 		}
+	}
+
+	.area-actions {
+		display: flex;
+		gap: 10px;
+	}
+
+	.area-btn {
+		flex: 1;
+		height: 40px;
+		line-height: 40px;
+		border-radius: 10px;
+		background: #FF8F00;
+		color: #fff;
+		font-size: 14px;
+	}
+
+	.area-btn.ghost {
+		background: rgba(255, 143, 0, 0.12);
+		color: #FF8F00;
+	}
+
+	.area-selected {
+		margin-top: 12px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		color: #333;
+	}
+
+	.area-text {
+		flex: 1;
+		color: #666;
+	}
+
+	.area-clear {
+		color: #FF8F00;
 	}
 
 	.dict-options {
@@ -501,11 +649,13 @@
 		height: 100%;
 		background: #f0f2f5;
 	}
+
 	.card-video-wrap {
 		position: relative;
 		width: 100%;
 		height: 100%;
 	}
+
 	.video-badge {
 		position: absolute;
 		top: 6px;
@@ -513,7 +663,7 @@
 		font-size: 11px;
 		padding: 2px 8px;
 		border-radius: 4px;
-		background: rgba(0,0,0,0.5);
+		background: rgba(0, 0, 0, 0.5);
 		color: #fff;
 	}
 

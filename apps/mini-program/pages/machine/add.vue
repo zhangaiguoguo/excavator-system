@@ -3,7 +3,11 @@
 		<view class="card form-card">
 			<uni-forms ref="formRef" label-position="right" label-width="80px" :modelValue="form" :rules="rules">
 				<uni-forms-item label="设备类型" name="type" required>
-					<uni-easyinput v-model="form.type" placeholder="如：挖掘机整机、挖斗、炮头"></uni-easyinput>
+					<uni-data-select v-model="typeSelect" :localdata="machineTypeOptions" placeholder="请选择"
+						@change="form.type = $event==8?null:$event"></uni-data-select>
+					<view v-if="typeSelect == 8" class="mt-2">
+						<uni-easyinput v-model="form.type" placeholder="请输入设备类型"></uni-easyinput>
+					</view>
 				</uni-forms-item>
 				<uni-forms-item label="设备型号" name="model" required>
 					<uni-easyinput v-model="form.model" placeholder="如：三一 SY200、卡特 320GC"></uni-easyinput>
@@ -60,10 +64,18 @@
 	import UploadImageList from '@/components/UploadImageList.vue';
 	import UploadVideo from '@/components/UploadVideo.vue';
 	import appStore from '@/store/app';
-	import { JSONStringify } from '../../common/util/util';
-	import { setListRefreshHint } from '@/common/util/listRefresh.js';
-	import { checkUserCanPublish } from '@/common/util/publishCheck.js';
-	import { Constants } from '@excavator/types';
+	import {
+		JSONStringify
+	} from '../../common/util/util';
+	import {
+		setListRefreshHint
+	} from '@/common/util/listRefresh.js';
+	import {
+		checkUserCanPublish
+	} from '@/common/util/publishCheck.js';
+	import {
+		Constants
+	} from '@excavator/types';
 
 	export default {
 		components: {
@@ -74,6 +86,9 @@
 		data() {
 			return {
 				Constants,
+				machineId: '',
+				isEdit: false,
+				typeSelect: '',
 				rentDateRange: [],
 				locationValue: {
 					province: '',
@@ -100,12 +115,13 @@
 					video: ''
 				},
 				conditionOptions: useDictOne('machine_condition'),
+				machineTypeDict: useDictOne('machine_type'),
 				rentUnitOptions: useDictOne('work_hours_unit'),
 				rules: {
 					type: {
 						rules: [{
 							required: true,
-							errorMessage: '请输入设备类型'
+							errorMessage: '请选择设备类型'
 						}]
 					},
 					model: {
@@ -165,6 +181,14 @@
 				}
 			};
 		},
+		computed: {
+			machineTypeOptions() {
+				return this.machineTypeDict;
+			},
+			userInfo() {
+				return appStore().state.userInfo;
+			}
+		},
 		watch: {
 			rentDateRange: {
 				handler(arr) {
@@ -188,18 +212,50 @@
 				},
 			},
 		},
-		computed: {
-			userInfo() {
-				return appStore().state.userInfo;
-			}
-		},
-		onLoad() {
+		onLoad(options) {
 			if (!this.userInfo?.id) {
-				this.$tip.alert("您还未登录系统！")
+				this.$tip.alert("您还未登录系统！");
 				setTimeout(() => uni.navigateBack(), 1500);
+				return;
+			}
+			if (options && options.id) {
+				this.isEdit = true;
+				this.machineId = options.id;
+				this.loadDetail(options.id);
 			}
 		},
 		methods: {
+			loadDetail(id) {
+				this.$tip.loading && this.$tip.loading('加载中...');
+				apiService.getMachine(String(id))
+					.then((res) => {
+						const data = res?.data ?? res;
+						if (!data) return;
+						this.form = {
+							...data
+						}
+						this.rentDateRange = [
+							this.form.rentStartDate || '',
+							this.form.rentEndDate || ''
+						];
+						this.locationValue = {
+							province: this.form.province,
+							city: this.form.city,
+							district: this.form.district,
+							address: this.form.address,
+							latitude: data.latitude,
+							longitude: data.longitude,
+						};
+						// 设备类型下拉：如果在字典里，用编码；否则视为“其他”
+						const dictArr = (this.machineTypeDict ?? []) || [];
+						const hit = Array.isArray(dictArr) && dictArr.find((x) => x.value === this.form.type);
+						if (hit) this.typeSelect = this.form.type;
+						else this.typeSelect = "8";
+					})
+					.finally(() => {
+						this.$tip.loaded && this.$tip.loaded();
+					});
+			},
 			submit() {
 				const publishCheck = checkUserCanPublish(this.userInfo);
 				if (!publishCheck.can) {
@@ -224,16 +280,19 @@
 						images: (this.form.images),
 						video: (this.form.video) || undefined
 					};
-					this.$tip.loading('发布中...');
-					apiService.createMachine(payload).then(() => {
+					this.$tip.loading(this.isEdit ? '保存中...' : '发布中...');
+					const req = this.isEdit && this.machineId ?
+						apiService.updateMachine(String(this.machineId), payload) :
+						apiService.createMachine(payload);
+					req.then(() => {
 						this.$tip.loaded();
-						this.$tip.success('发布成功');
+						this.$tip.success(this.isEdit ? '保存成功' : '发布成功');
 						setListRefreshHint('machine');
 						setListRefreshHint('publish');
 						setTimeout(() => uni.navigateBack(), 1500);
 					}).catch(err => {
 						this.$tip.loaded();
-						this.$tip.alert(err?.message || '发布失败');
+						this.$tip.alert(err?.message || (this.isEdit ? '保存失败' : '发布失败'));
 					});
 				}).catch(() => {});
 			}

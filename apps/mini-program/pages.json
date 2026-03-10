@@ -11,7 +11,7 @@
 		{
 			"path": "pages/machine/list",
 			"style": {
-				"navigationBarTitleText": "找挖机",
+				"navigationBarTitleText": "找设备",
 				"enablePullDownRefresh": true
 			}
 		},
@@ -122,6 +122,13 @@
 				"navigationBarTitleText": "视频",
 				"navigationBarBackgroundColor": "#000"
 			}
+		},
+		{
+			"path": "pages/notify/list",
+			"style": {
+				"navigationBarTitleText": "消息通知",
+				"enablePullDownRefresh": true
+			}
 		}
 	],
 	"globalStyle": {
@@ -147,7 +154,7 @@
 				"pagePath": "pages/machine/list",
 				"iconPath": "static/tabbar/search.png",
 				"selectedIconPath": "static/tabbar/search-active.png",
-				"text": "找挖机"
+				"text": "找设备"
 			},
 			{
 				"pagePath": "pages/demand/list",

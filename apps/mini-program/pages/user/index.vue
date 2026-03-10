@@ -137,7 +137,7 @@
 					{
 						text: '消息通知',
 						icon: 'chat',
-						path: '/pages/user/msg',
+						path: '/pages/notify/list',
 						color: '#2196F3'
 					}
 				]
@@ -188,7 +188,8 @@
 									};
 									appStore().setToken(access_token);
 									appStore().setUser(finalUser);
-									if (finalUser && finalUser.id) uni.setStorageSync('userId', finalUser.id);
+									if (finalUser && finalUser.id) uni.setStorageSync(
+										'userId', finalUser.id);
 									this.$tip.success("登录成功");
 									console.log(finalUser)
 								}).catch(err => {
@@ -382,6 +383,7 @@
 			font-size: 13px;
 			color: #999;
 			margin-right: 10px;
+			line-height: 22px;
 		}
 	}
 

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from './contract.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class ContractsService {
   constructor(
     @InjectRepository(Contract)
     private contractsRepository: Repository<Contract>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async findAll(
@@ -54,7 +56,23 @@ export class ContractsService {
       contentHash: uuidv4(), // Placeholder for hash
       status: 0, // Draft
     });
-    return this.contractsRepository.save(contract);
+    const saved = await this.contractsRepository.save(contract);
+    const createBy = (contractData as any).createBy;
+    const recipientId =
+      createBy && String(createBy) === String(saved.lessorId)
+        ? saved.lesseeId
+        : saved.lessorId;
+    if (recipientId) {
+      await this.notificationsService.create({
+        userId: String(recipientId),
+        type: 'contract_invite',
+        title: '您有一条新合同待签署',
+        content: `合同号：${saved.contractNo}，请尽快处理。`,
+        refType: 'contract',
+        refId: String(saved.id),
+      });
+    }
+    return saved;
   }
 
   async update(

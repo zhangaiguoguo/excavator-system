@@ -3,7 +3,7 @@
     <view v-if="loading" class="loading-wrap"><uni-load-more status="loading" /></view>
     <template v-else-if="machine.id">
       <view class="card banner-card">
-        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7">
+        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7" @change="onBannerSwiperChange">
           <swiper-item v-for="(m, idx) in mediaItems(machine)" :key="idx">
             <image
               v-if="m.type === 'image'"
@@ -13,7 +13,7 @@
               @click="previewImage(idx)"
             />
             <view v-else class="banner-video-wrap" @click.stop>
-              <video class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
+              <video id="banner-video-machine" class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
               <view class="video-badge">视频</view>
             </view>
           </swiper-item>
@@ -127,6 +127,14 @@ export default {
       const items = this.mediaItems(this.machine).filter((m) => m.type === 'image');
       const urls = items.map((m) => this.getFileViewUrl(m.value)).filter(Boolean);
       if (urls.length) uni.previewImage({ urls, current: urls[index] || urls[0] });
+    },
+    onBannerSwiperChange(e) {
+      const items = this.mediaItems(this.machine);
+      const videoIdx = items.findIndex((m) => m.type === 'video');
+      if (videoIdx >= 0 && e.detail.current !== videoIdx) {
+        const ctx = uni.createVideoContext('banner-video-machine', this);
+        if (ctx && ctx.pause) ctx.pause();
+      }
     },
     toggleFav() {
       const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');

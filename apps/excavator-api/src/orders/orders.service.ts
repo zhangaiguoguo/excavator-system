@@ -48,7 +48,14 @@ export class OrdersService {
     const qb = this.ordersRepository.createQueryBuilder('d')
       .leftJoinAndSelect('d.user', 'user')
       .where('d.status = :status', { status: '1' });
-    if (filters?.type) qb.andWhere('d.type = :type', { type: filters.type });
+    if (filters?.type) {
+      const types = String(filters.type)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (types.length <= 1) qb.andWhere('d.type = :type', { type: types[0] });
+      else qb.andWhere('d.type IN (:...types)', { types });
+    }
     if (filters?.province) qb.andWhere('d.province = :province', { province: filters.province });
     if (filters?.city) qb.andWhere('d.city = :city', { city: filters.city });
     if (filters?.district) qb.andWhere('d.district = :district', { district: filters.district });

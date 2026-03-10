@@ -6,7 +6,7 @@
     <template v-else-if="demand.id">
       <!-- 轮播图/视频 -->
       <view v-if="mediaItems(demand).length" class="card banner-card">
-        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7">
+        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7" @change="onBannerSwiperChange">
           <swiper-item v-for="(m, idx) in mediaItems(demand)" :key="idx">
             <image
               v-if="m.type === 'image'"
@@ -15,7 +15,7 @@
               class="banner-img"
             />
             <view v-else class="banner-video-wrap" @click.stop>
-              <video class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
+              <video id="banner-video-demand" class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
               <view class="video-badge">视频</view>
             </view>
           </swiper-item>
@@ -114,6 +114,14 @@ export default {
       const imgs = Array.isArray(item && item.images) ? item.images : [];
       imgs.forEach((img) => list.push({ type: 'image', value: img }));
       return list;
+    },
+    onBannerSwiperChange(e) {
+      const items = this.mediaItems(this.demand);
+      const videoIdx = items.findIndex((m) => m.type === 'video');
+      if (videoIdx >= 0 && e.detail.current !== videoIdx) {
+        const ctx = uni.createVideoContext('banner-video-demand', this);
+        if (ctx && ctx.pause) ctx.pause();
+      }
     },
     fetchDetail(id) {
       this.loading = true;

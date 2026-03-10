@@ -32,7 +32,7 @@
             mode="aspectFill"
           />
           <view class="feed-overlay">
-            <view class="feed-tag">{{ item.source === 'machine' ? '找挖机' : '需求' }}</view>
+            <view class="feed-tag">{{ item.source === 'machine' ? '找设备' : '需求' }}</view>
             <view class="feed-title">{{ item.title }}</view>
             <view class="feed-meta">
               <text class="heat">热度 {{ item.heat }}</text>
@@ -207,7 +207,13 @@ export default {
         });
     },
     onSwiperChange(e) {
-      this.currentIndex = e.detail.current;
+      const next = e.detail.current;
+      const prev = this.currentIndex;
+      if (prev !== next && this.feedList[prev]) {
+        const ctx = uni.createVideoContext('video-' + prev, this);
+        if (ctx && ctx.pause) ctx.pause();
+      }
+      this.currentIndex = next;
       if (this.feedList.length - this.currentIndex <= 3) {
         this.loadMoreFeed();
       }

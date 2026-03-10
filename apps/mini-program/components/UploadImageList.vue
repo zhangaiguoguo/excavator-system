@@ -32,7 +32,7 @@ function normalizeList(val) {
 export default {
   name: 'UploadImageList',
   props: {
-    value: {
+    modelValue: {
       type: Array,
       default: () => [],
     },
@@ -46,12 +46,13 @@ export default {
     },
   },
   data() {
+	  console.log(this)
     return {
-      innerValue: normalizeList(this.value),
+      innerValue: normalizeList(this.modelValue),
     };
   },
   watch: {
-    value: {
+    modelValue: {
       deep: true,
       handler(v) {
         this.innerValue = normalizeList(v);
@@ -65,7 +66,6 @@ export default {
     },
     emitChange() {
       const out = this.innerValue.map((it) => ({ fileId: it.fileId, fileName: it.fileName }));
-      this.$emit('input', out);
       this.$emit('update:modelValue', out);
       this.$emit('change', out);
     },

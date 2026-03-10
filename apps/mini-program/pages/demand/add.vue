@@ -62,6 +62,8 @@ export default {
   components: { LocationPicker, UploadImageList, UploadVideo },
   data() {
     return {
+      demandId: '',
+      isEdit: false,
       demandDateRange: [],
       locationValue: { province: '', city: '', district: '', address: '' },
       form: {
@@ -125,11 +127,53 @@ export default {
       },
     },
   },
-  onLoad() {
+  onLoad(options) {
     const store = appStore();
     this.form.userId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId') || '';
+    if (options && options.id) {
+      this.isEdit = true;
+      this.demandId = options.id;
+      this.loadDetail(options.id);
+    }
   },
   methods: {
+    loadDetail(id) {
+      this.$tip.loading && this.$tip.loading('加载中...');
+      apiService
+        .getDemand(String(id))
+        .then((res) => {
+          const data = res?.data ?? res;
+          if (!data) return;
+          this.form.userId = data.userId || this.form.userId;
+          this.form.type = String(data.type || '1');
+          this.form.machineTypes = data.machineTypes || [];
+          this.form.province = data.province || '';
+          this.form.city = data.city || '';
+          this.form.district = data.district || '';
+          this.form.address = data.address || '';
+          this.form.startDate = data.startDate ? String(data.startDate).slice(0, 10) : '';
+          this.form.endDate = data.endDate ? String(data.endDate).slice(0, 10) : '';
+          this.form.budgetMin = data.budgetMin != null ? String(data.budgetMin) : '';
+          this.form.budgetMax = data.budgetMax != null ? String(data.budgetMax) : '';
+          this.form.description = data.description || '';
+          this.form.images = data.images || [];
+          this.form.video = data.video || '';
+          this.form.isUrgent = data.isUrgent || 'N';
+          this.demandDateRange = [
+            this.form.startDate || '',
+            this.form.endDate || '',
+          ];
+          this.locationValue = {
+            province: this.form.province,
+            city: this.form.city,
+            district: this.form.district,
+            address: this.form.address,
+          };
+        })
+        .finally(() => {
+          this.$tip.loaded && this.$tip.loaded();
+        });
+    },
     submit() {
       const publishCheck = checkUserCanPublish(this.userInfo);
       if (!publishCheck.can) {
@@ -167,16 +211,19 @@ export default {
           video: this.form.video || undefined,
           isUrgent: this.form.isUrgent || 'N'
         };
-        this.$tip.loading('发布中...');
-        apiService.createDemand(payload).then(() => {
+        this.$tip.loading(this.isEdit ? '保存中...' : '发布中...');
+        const req = this.isEdit && this.demandId
+          ? apiService.updateDemand(String(this.demandId), payload)
+          : apiService.createDemand(payload);
+        req.then(() => {
           this.$tip.loaded();
-          this.$tip.success('发布成功');
+          this.$tip.success(this.isEdit ? '保存成功' : '发布成功');
           setListRefreshHint('demand');
           setListRefreshHint('publish');
           setTimeout(() => uni.navigateBack(), 1500);
         }).catch(err => {
           this.$tip.loaded();
-          this.$tip.alert(err?.message || '发布失败');
+          this.$tip.alert(err?.message || (this.isEdit ? '保存失败' : '发布失败'));
         });
       }).catch(() => {});
     }

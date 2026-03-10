@@ -17,9 +17,11 @@ import { Record } from './records/record.entity';
 import { Order } from './orders/order.entity';
 import { Job } from './jobs/job.entity';
 import { Favorite } from './favorites/favorite.entity';
+import { Notification } from './notifications/notification.entity';
 import { DictModule } from './system/dict/dict.module';
 import { JobsModule } from './jobs/jobs.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { DictType } from './system/dict/entities/dict-type.entity';
 import { DictData } from './system/dict/entities/dict-data.entity';
 import { FileModule } from './file/file.module';
@@ -44,7 +46,7 @@ import { GeoModule } from './geo/geo.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [User, Machine, Contract, Record, Order, Job, Favorite, DictType, DictData],
+        entities: [User, Machine, Contract, Record, Order, Job, Favorite, Notification, DictType, DictData],
         synchronize: configService.get<boolean>('DB_SYNCHRONIZE'),
       }),
     }),
@@ -56,6 +58,7 @@ import { GeoModule } from './geo/geo.module';
     OrdersModule,
     JobsModule,
     FavoritesModule,
+    NotificationsModule,
     AuthModule,
     DictModule,
     FileModule,

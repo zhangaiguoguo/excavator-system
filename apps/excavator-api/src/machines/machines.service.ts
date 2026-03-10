@@ -58,7 +58,14 @@ export class MachinesService {
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.user', 'user')
       .where('m.status = :status', { status: '1' });
-    if (filters?.type) qb.andWhere('m.type = :type', { type: filters.type });
+    if (filters?.type) {
+      const types = String(filters.type)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (types.length <= 1) qb.andWhere('m.type = :type', { type: types[0] });
+      else qb.andWhere('m.type IN (:...types)', { types });
+    }
     if (filters?.condition)
       qb.andWhere('m.condition_type = :condition', {
         condition: filters.condition,
@@ -91,10 +98,16 @@ export class MachinesService {
       filters?.latitude != null &&
       filters?.longitude != null
     ) {
-      const lat = parseFloat(filters.latitude);
-      const lng = parseFloat(filters.longitude);
-      const expr = `(6371000 * acos(least(1, cos(radians(${lat})) * cos(radians(m.latitude)) * cos(radians(m.longitude) - radians(${lng})) + sin(radians(${lat})) * sin(radians(m.latitude)))))`;
-      qb.orderBy(expr, 'ASC');
+      const lat = parseFloat(String(filters.latitude));
+      const lng = parseFloat(String(filters.longitude));
+      qb
+        .addSelect(
+          '(6371000 * acos(least(1, cos(radians(:lat)) * cos(radians(m.latitude)) * cos(radians(m.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(m.latitude)))))',
+          'distance',
+        )
+        .setParameter('lat', lat)
+        .setParameter('lng', lng)
+        .orderBy('distance', 'ASC');
     } else qb.orderBy('m.createTime', 'DESC');
     const [list, total] = await qb
       .skip((page - 1) * pageSize)

@@ -150,7 +150,7 @@ export default {
       categoryActive: 'home',
       categoryTabs: [
         { key: 'home', label: '首页' },
-        { key: 'machine', label: '找挖机' },
+        { key: 'machine', label: '找设备' },
         { key: 'demand', label: '需求' },
         { key: 'publish', label: '我的发布' },
         { key: 'fav', label: '收藏' },

@@ -152,6 +152,21 @@ class ApiServer {
 	checkFavorite(userId : string, refType : string, refId : string) {
 		return http.get('/favorites/check', { params: { userId, refType, refId } });
 	}
+
+	// 通知（需登录，后端从 token 取 userId）
+	getNotifications(params ?: { page ?: number; pageSize ?: number; unreadOnly ?: boolean }) {
+		const p: Record<string, string | number> = {};
+		if (params?.page != null) p.page = params.page;
+		if (params?.pageSize != null) p.pageSize = params.pageSize;
+		if (params?.unreadOnly) p.unreadOnly = '1';
+		return http.get('/notifications', { params: p });
+	}
+	markNotificationRead(id : string) {
+		return http.put('/notifications/' + id + '/read');
+	}
+	markAllNotificationsRead() {
+		return http.put('/notifications/read-all');
+	}
 }
 
 const apiService = new ApiServer();

@@ -339,6 +339,20 @@ CREATE TABLE t_finance_record (
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财务记账记录表';
 
+-- 通知表
+CREATE TABLE IF NOT EXISTS t_notification (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    user_id BIGINT NOT NULL COMMENT '接收用户ID',
+    type VARCHAR(32) NOT NULL COMMENT '类型 contract_invite/contract_signed/system',
+    title VARCHAR(128) NOT NULL COMMENT '标题',
+    content VARCHAR(512) DEFAULT NULL COMMENT '内容',
+    ref_type VARCHAR(32) DEFAULT NULL COMMENT '关联类型 contract/demand/machine',
+    ref_id BIGINT DEFAULT NULL COMMENT '关联ID',
+    is_read TINYINT DEFAULT 0 COMMENT '是否已读 0否 1是',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (user_id) REFERENCES t_user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知表';
+
 -- 若 t_demand 表已存在且无 images/video 列，可执行以下语句追加（可选）：
 -- ALTER TABLE t_demand ADD COLUMN images JSON COMMENT '图片URL数组' AFTER description;
 -- ALTER TABLE t_demand ADD COLUMN video VARCHAR(512) COMMENT '视频URL' AFTER images;

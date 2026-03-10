@@ -35,20 +35,24 @@
               v-for="opt in dictOptions.demand_type"
               :key="opt.value"
               class="dict-option"
-              :class="{ on: filter.type === opt.value }"
-              @click="filter.type = opt.value"
+              :class="{ on: (filter.type || []).includes(opt.value) }"
+              @click="toggleType(opt.value)"
             >
               {{ opt.text }}
             </view>
           </view>
         </view>
         <view v-else-if="filterActive === 'area'" class="popup-section">
-          <view class="section-label">省份</view>
-          <uni-easyinput v-model="filter.province" placeholder="如：湖南省"></uni-easyinput>
-          <view class="section-label">城市</view>
-          <uni-easyinput v-model="filter.city" placeholder="如：长沙市"></uni-easyinput>
-          <view class="section-label">区县</view>
-          <uni-easyinput v-model="filter.district" placeholder="选填"></uni-easyinput>
+          <view class="section-label">选择方式</view>
+          <view class="area-actions">
+            <button class="area-btn" @click="pickCurrentArea">选当前位置</button>
+            <button class="area-btn ghost" @click="pickAreaFromMap">地图选点</button>
+          </view>
+          <view class="area-selected">
+            <uni-icons type="location-filled" size="16" color="#007aff" />
+            <text class="area-text">{{ areaText || '未选择' }}</text>
+            <text v-if="areaText" class="area-clear" @click="clearArea">清空</text>
+          </view>
         </view>
         <view v-else-if="filterActive === 'budget'" class="popup-section">
           <view class="section-label">预算区间（元）</view>
@@ -86,7 +90,7 @@
         @click="goDetail(item.id)"
       >
         <view class="card-media">
-          <swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1">
+          <swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1" @change="onCardSwiperChange(item, $event)">
             <swiper-item v-for="(m, idx) in mediaItems(item)" :key="idx">
               <image
                 v-if="m.type === 'image'"
@@ -95,7 +99,7 @@
                 mode="aspectFill"
               />
               <view v-else class="card-video-wrap" @click.stop>
-                <video class="card-img" :src="getFileViewUrl(m.value)" controls />
+                <video :id="'video-d-' + item.id" class="card-img" :src="getFileViewUrl(m.value)" controls />
                 <view class="video-badge">视频</view>
               </view>
             </swiper-item>
@@ -150,13 +154,13 @@ export default {
       total: 0,
       filterActive: '',
       filter: {
-        type: '',
+        type: [],
         province: '',
         city: '',
         district: '',
         budgetMin: '',
         budgetMax: '',
-        sort: 'latest',
+        sort: 'distance',
       },
       filterTabs: [
         { key: 'type', label: '类型' },
@@ -167,14 +171,20 @@ export default {
       sortOptions: [
         { text: '最新发布', value: 'latest' },
         { text: '预算从低到高', value: 'price_asc' },
+        { text: '距离优先', value: 'distance' },
       ],
+      location: {
+        latitude: null,
+        longitude: null,
+      },
       dictOptions: {
         demand_type: useDictOne('demand_type'),
       },
+      areaText: '',
     };
   },
   onLoad() {
-    this.fetchDemands(true);
+    this.initByLocation();
   },
   onShow() {
     tryRefreshList('demand', () => this.fetchDemands(true));
@@ -187,6 +197,66 @@ export default {
   },
   methods: {
     getFileViewUrl,
+    toggleType(v) {
+      const arr = Array.isArray(this.filter.type) ? this.filter.type : [];
+      const idx = arr.indexOf(v);
+      if (idx >= 0) arr.splice(idx, 1);
+      else arr.push(v);
+      this.filter.type = arr;
+    },
+    applyAreaFromRegeo(regeo) {
+      const province = regeo?.province || '';
+      const city = regeo?.city || '';
+      const district = regeo?.district || '';
+      this.filter.province = province;
+      this.filter.city = city;
+      this.filter.district = district;
+      this.areaText = [province, city, district].filter(Boolean).join(' ');
+    },
+    pickCurrentArea() {
+      uni.getLocation({
+        type: 'gcj02',
+        success: (res) => {
+          this.location = { latitude: res.latitude, longitude: res.longitude };
+          apiService
+            .regeoLocation({ longitude: res.longitude, latitude: res.latitude, extensions: 'base' })
+            .then((r) => {
+              const data = r?.data ?? r;
+              this.applyAreaFromRegeo(data);
+            })
+            .catch(() => {
+              this.areaText = '当前位置';
+            });
+        },
+        fail: () => {
+          this.$tip?.error?.('请授权位置信息');
+        },
+      });
+    },
+    pickAreaFromMap() {
+      uni.chooseLocation({
+        success: (res) => {
+          if (res && res.latitude != null && res.longitude != null) {
+            this.location = { latitude: res.latitude, longitude: res.longitude };
+            apiService
+              .regeoLocation({ longitude: res.longitude, latitude: res.latitude, extensions: 'base' })
+              .then((r) => {
+                const data = r?.data ?? r;
+                this.applyAreaFromRegeo(data);
+              })
+              .catch(() => {
+                this.areaText = res.name || res.address || '地图选点';
+              });
+          }
+        },
+      });
+    },
+    clearArea() {
+      this.filter.province = '';
+      this.filter.city = '';
+      this.filter.district = '';
+      this.areaText = '';
+    },
     mediaItems(item) {
       const list = [];
       if (item.video) list.push({ type: 'video', value: item.video });
@@ -219,10 +289,10 @@ export default {
       this.$refs.filterPopup.open();
     },
     resetFilter() {
-      if (this.filterActive === 'type') this.filter.type = '';
-      else if (this.filterActive === 'area') this.filter.province = this.filter.city = this.filter.district = '';
+      if (this.filterActive === 'type') this.filter.type = [];
+      else if (this.filterActive === 'area') this.clearArea();
       else if (this.filterActive === 'budget') this.filter.budgetMin = this.filter.budgetMax = '';
-      else if (this.filterActive === 'sort') this.filter.sort = 'latest';
+      else if (this.filterActive === 'sort') this.filter.sort = 'distance';
     },
     applyFilter() {
       this.$refs.filterPopup.close();
@@ -236,7 +306,7 @@ export default {
         this.loadingMore = true;
       }
       const params = { page: this.page, pageSize: this.pageSize };
-      if (this.filter.type) params.type = this.filter.type;
+      if (Array.isArray(this.filter.type) && this.filter.type.length) params.type = this.filter.type.join(',');
       if (this.filter.province) params.province = this.filter.province;
       if (this.filter.city) params.city = this.filter.city;
       if (this.filter.district) params.district = this.filter.district;
@@ -244,6 +314,10 @@ export default {
       if (this.filter.budgetMax) params.budgetMax = this.filter.budgetMax;
       if (this.keyword) params.keyword = this.keyword;
       if (this.filter.sort) params.sort = this.filter.sort;
+      if (this.filter.sort === 'distance' && this.location.latitude != null) {
+        params.latitude = this.location.latitude;
+        params.longitude = this.location.longitude;
+      }
       return apiService.getDemands(params).then((res) => {
         const data = res?.data ?? res;
         const list = data?.list ?? (Array.isArray(data) ? data : []);
@@ -257,6 +331,31 @@ export default {
         this.loading = false;
         this.loadingMore = false;
       });
+    },
+    initByLocation() {
+      uni.getLocation({
+        type: 'gcj02',
+        success: (res) => {
+          this.location = {
+            latitude: res.latitude,
+            longitude: res.longitude,
+          };
+          this.filter.sort = 'distance';
+          this.fetchDemands(true);
+        },
+        fail: () => {
+          this.filter.sort = 'distance';
+          this.fetchDemands(true);
+        },
+      });
+    },
+    onCardSwiperChange(item, e) {
+      const items = this.mediaItems(item);
+      const videoIdx = items.findIndex((m) => m.type === 'video');
+      if (videoIdx >= 0 && e.detail.current !== videoIdx) {
+        const ctx = uni.createVideoContext('video-d-' + item.id, this);
+        if (ctx && ctx.pause) ctx.pause();
+      }
     },
     loadMore() {
       if (this.loading || this.loadingMore) return;
@@ -437,6 +536,38 @@ export default {
   padding-top: 80px;
   color: #999;
   font-size: 14px;
+}
+.area-actions {
+  display: flex;
+  gap: 10px;
+}
+.area-btn {
+  flex: 1;
+  height: 40px;
+  line-height: 40px;
+  border-radius: 10px;
+  background: #007aff;
+  color: #fff;
+  font-size: 14px;
+}
+.area-btn.ghost {
+  background: rgba(0, 122, 255, 0.12);
+  color: #007aff;
+}
+.area-selected {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #333;
+}
+.area-text {
+  flex: 1;
+  color: #666;
+}
+.area-clear {
+  color: #007aff;
 }
 .fab {
   position: fixed;

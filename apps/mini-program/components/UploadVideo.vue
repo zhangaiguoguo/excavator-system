@@ -45,7 +45,7 @@ export default {
   name: 'UploadVideo',
   props: {
     /** 单视频: { fileId, fileName } 或 ''；多视频: [{ fileId, fileName }, ...] */
-    value: {
+    modelValue: {
       type: [String, Object, Array],
       default: () => '',
     },
@@ -65,7 +65,7 @@ export default {
     };
   },
   watch: {
-    value: {
+    modelValue: {
       immediate: true,
       handler(v) {
         if (this.max === 1) {
