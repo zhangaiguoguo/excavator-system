@@ -27,7 +27,7 @@
 	export default {
 		name: 'LocationPicker',
 		props: {
-			value: {
+			modelValue: {
 				type: Object,
 				default: () => ({}),
 			},
@@ -45,7 +45,7 @@
 			};
 		},
 		watch: {
-			value: {
+			modelValue: {
 				immediate: true,
 				handler(v) {
 					this.local = v;

@@ -26,7 +26,8 @@ export class FileController {
   @Public()
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }), // 20MB，支持图片和短视频
+    // 允许上传最大约 50MB 的文件（图片/短视频）
+    FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }),
   )
   async upload(@UploadedFile() file: Express.Multer.File) {
     if (!file?.buffer) {
@@ -57,7 +58,7 @@ export class FileController {
   @Public()
   @Post('commom/Upload')
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }),
+    FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }),
   )
   async uploadCompat(@UploadedFile() file: Express.Multer.File) {
     return this.upload(file);

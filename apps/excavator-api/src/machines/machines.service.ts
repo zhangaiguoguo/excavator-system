@@ -90,8 +90,7 @@ export class MachinesService {
       );
     }
     if (filters?.sort === 'price_asc') qb.orderBy('m.rentAmount', 'ASC');
-    else if (filters?.sort === 'price_desc')
-      qb.orderBy('m.rentAmount', 'DESC');
+    else if (filters?.sort === 'price_desc') qb.orderBy('m.rentAmount', 'DESC');
     else if (filters?.sort === 'latest') qb.orderBy('m.createTime', 'DESC');
     else if (
       filters?.sort === 'distance' &&
@@ -100,11 +99,10 @@ export class MachinesService {
     ) {
       const lat = parseFloat(String(filters.latitude));
       const lng = parseFloat(String(filters.longitude));
-      qb
-        .addSelect(
-          '(6371000 * acos(least(1, cos(radians(:lat)) * cos(radians(m.latitude)) * cos(radians(m.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(m.latitude)))))',
-          'distance',
-        )
+      qb.addSelect(
+        '(6371000 * acos(least(1, cos(radians(:lat)) * cos(radians(m.latitude)) * cos(radians(m.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(m.latitude)))))',
+        'distance',
+      )
         .setParameter('lat', lat)
         .setParameter('lng', lng)
         .orderBy('distance', 'ASC');
@@ -118,7 +116,9 @@ export class MachinesService {
       let safeUser: any = undefined;
       if (user) {
         const decryptedPhone =
-          user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+          user.phone != null
+            ? (this.cryptoService.decrypt(user.phone) ?? user.phone)
+            : undefined;
         safeUser = {
           id: user.id,
           nickname: user.nickname,
@@ -139,11 +139,14 @@ export class MachinesService {
       relations: ['user'],
     });
     if (!machine) return null;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { user, ...rest } = machine as any;
     let safeUser: any = undefined;
     if (user) {
       const decryptedPhone =
-        user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+        user.phone != null
+          ? (this.cryptoService.decrypt(user.phone) ?? user.phone)
+          : undefined;
       safeUser = {
         id: user.id,
         nickname: user.nickname,
@@ -192,6 +195,8 @@ export class MachinesService {
       );
     if (payload.video !== undefined)
       payload.video = normalizeFileItem(payload.video as string | FileItemDto);
+    payload.rentStartDate = payload.rentStartDate || null;
+    payload.rentEndDate = payload.rentEndDate || null;
     await this.machinesRepository.update(id, payload);
     return this.machinesRepository.findOne({
       where: { id },

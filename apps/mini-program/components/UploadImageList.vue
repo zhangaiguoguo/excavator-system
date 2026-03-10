@@ -46,7 +46,6 @@ export default {
     },
   },
   data() {
-	  console.log(this)
     return {
       innerValue: normalizeList(this.modelValue),
     };
