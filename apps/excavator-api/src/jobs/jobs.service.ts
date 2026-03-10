@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from './job.entity';
+import { UsersService } from '../users/users.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 
@@ -10,6 +11,7 @@ export class JobsService {
   constructor(
     @InjectRepository(Job)
     private jobsRepository: Repository<Job>,
+    private usersService: UsersService,
   ) {}
 
   async findAll(filters?: {
@@ -35,7 +37,7 @@ export class JobsService {
     if (filters?.priceMax) qb.andWhere('j.price <= :priceMax', { priceMax: filters.priceMax });
     if (filters?.userId) qb.andWhere('j.user_id = :userId', { userId: filters.userId });
     if (filters?.sort === 'price_asc') qb.orderBy('j.price', 'ASC');
-    else qb.orderBy('j.create_time', 'DESC');
+    else qb.orderBy('j.createTime', 'DESC');
     return qb.getMany();
   }
 
@@ -44,6 +46,7 @@ export class JobsService {
   }
 
   async create(dto: CreateJobDto): Promise<Job> {
+    await this.usersService.ensureUserCanPublish(dto.userId);
     const payload = {
       ...dto,
       workStartDate: new Date(dto.workStartDate),

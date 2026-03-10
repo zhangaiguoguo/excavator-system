@@ -54,7 +54,7 @@ scroll-view {
 }
 
 .w-full {
-	height: 100%;
+	width: 100%;
 }
 
 .justify-end {
@@ -63,4 +63,8 @@ scroll-view {
 
 .w-half{
 	width: 50%;
+}
+
+.pl-2{
+	padding-left: 12rpx;
 }

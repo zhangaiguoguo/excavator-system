@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query, Request } from '@nestjs/common';
 import { MachinesService } from './machines.service';
 import { Machine } from './machine.entity';
 import { CreateMachineDto } from './dto/create-machine.dto';
 import { UpdateMachineDto } from './dto/update-machine.dto';
+import { getRequiredUserId } from '../common/get-user-id';
 
 @Controller('machines')
 export class MachinesController {
@@ -51,12 +52,16 @@ export class MachinesController {
   }
 
   @Post()
-  create(@Body() createMachineDto: CreateMachineDto): Promise<Machine> {
-    return this.machinesService.create(createMachineDto);
+  create(@Request() req: any, @Body() createMachineDto: CreateMachineDto): Promise<Machine> {
+    const userId = getRequiredUserId(req);
+    return this.machinesService.create({ ...createMachineDto, userId });
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateMachineDto: UpdateMachineDto): Promise<Machine | null> {
+  update(
+    @Param('id') id: string,
+    @Body() updateMachineDto: UpdateMachineDto,
+  ): Promise<Machine | null> {
     return this.machinesService.update(id, updateMachineDto);
   }
 

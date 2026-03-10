@@ -1,4 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../users/user.entity';
 
 @Entity('t_machine')
@@ -34,10 +42,10 @@ export class Machine {
   @Column({ name: 'rent_unit', length: 64 })
   rentUnit: string; // dict: work_hours_unit 元/小时、元/天、元/月
 
-  @Column({ name: 'rent_start_date', type: 'date' })
+  @Column({ name: 'rent_start_date', type: 'date', nullable: true })
   rentStartDate: Date;
 
-  @Column({ name: 'rent_end_date', type: 'date' })
+  @Column({ name: 'rent_end_date', type: 'date', nullable: true })
   rentEndDate: Date;
 
   @Column({ name: 'is_long_term', length: 1, default: 'N' })
@@ -68,10 +76,10 @@ export class Machine {
   description: string;
 
   @Column({ type: 'json' })
-  images: string[];
+  images: Array<{ fileId: string; fileName: string }>;
 
-  @Column({ length: 512, nullable: true })
-  video: string;
+  @Column({ type: 'json', nullable: true })
+  video: { fileId: string; fileName: string } | string | null;
 
   @Column({ length: 64, default: '1' })
   status: string; // dict: machine_status
@@ -88,8 +96,14 @@ export class Machine {
   @Column({ name: 'contact_count', default: 0 })
   contactCount: number;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
+
+  @Column({ name: 'update_by', length: 64, default: '' })
+  updateBy: string;
 
   @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;

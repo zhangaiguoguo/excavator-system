@@ -2,14 +2,38 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Machine } from './machine.entity';
-import { CreateMachineDto } from './dto/create-machine.dto';
+import { UsersService } from '../users/users.service';
+import { CryptoService } from '../common/crypto/crypto.service';
+import { CreateMachineDto, FileItemDto } from './dto/create-machine.dto';
 import { UpdateMachineDto } from './dto/update-machine.dto';
+import { Constants } from '@excavator/types';
+
+function normalizeFileItem(
+  v: string | FileItemDto | undefined | null,
+): { fileId: string; fileName: string } | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') return { fileId: v, fileName: v };
+  if (v.fileId || v.fileName)
+    return { fileId: v.fileId || v.fileName, fileName: v.fileName || v.fileId };
+  return null;
+}
+
+function normalizeFileItems(
+  v: (string | FileItemDto)[] | undefined,
+): Array<{ fileId: string; fileName: string }> {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((it) => normalizeFileItem(it))
+    .filter((x): x is { fileId: string; fileName: string } => x != null);
+}
 
 @Injectable()
 export class MachinesService {
   constructor(
     @InjectRepository(Machine)
     private machinesRepository: Repository<Machine>,
+    private cryptoService: CryptoService,
+    private usersService: UsersService,
   ) {}
 
   async findAll(filters?: {
@@ -30,56 +54,136 @@ export class MachinesService {
   }): Promise<{ list: Machine[]; total: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, filters?.pageSize ?? 10));
-    const qb = this.machinesRepository.createQueryBuilder('m')
+    const qb = this.machinesRepository
+      .createQueryBuilder('m')
       .leftJoinAndSelect('m.user', 'user')
       .where('m.status = :status', { status: '1' });
     if (filters?.type) qb.andWhere('m.type = :type', { type: filters.type });
-    if (filters?.condition) qb.andWhere('m.condition_type = :condition', { condition: filters.condition });
-    if (filters?.priceMin) qb.andWhere('m.rent_amount >= :priceMin', { priceMin: filters.priceMin });
-    if (filters?.priceMax) qb.andWhere('m.rent_amount <= :priceMax', { priceMax: filters.priceMax });
-    if (filters?.province) qb.andWhere('m.province = :province', { province: filters.province });
-    if (filters?.city) qb.andWhere('m.city = :city', { city: filters.city });
-    if (filters?.district) qb.andWhere('m.district = :district', { district: filters.district });
-    if (filters?.userId) qb.andWhere('m.user_id = :userId', { userId: filters.userId });
-    if (filters?.keyword) {
-      qb.andWhere('(m.model LIKE :kw OR m.brand LIKE :kw OR m.description LIKE :kw)', {
-        kw: '%' + filters.keyword + '%',
+    if (filters?.condition)
+      qb.andWhere('m.condition_type = :condition', {
+        condition: filters.condition,
       });
+    if (filters?.priceMin)
+      qb.andWhere('m.rent_amount >= :priceMin', { priceMin: filters.priceMin });
+    if (filters?.priceMax)
+      qb.andWhere('m.rent_amount <= :priceMax', { priceMax: filters.priceMax });
+    if (filters?.province)
+      qb.andWhere('m.province = :province', { province: filters.province });
+    if (filters?.city) qb.andWhere('m.city = :city', { city: filters.city });
+    if (filters?.district)
+      qb.andWhere('m.district = :district', { district: filters.district });
+    if (filters?.userId)
+      qb.andWhere('m.user_id = :userId', { userId: filters.userId });
+    if (filters?.keyword) {
+      qb.andWhere(
+        '(m.model LIKE :kw OR m.brand LIKE :kw OR m.description LIKE :kw)',
+        {
+          kw: '%' + filters.keyword + '%',
+        },
+      );
     }
-    if (filters?.sort === 'price_asc') qb.orderBy('m.rent_amount', 'ASC');
-    else if (filters?.sort === 'price_desc') qb.orderBy('m.rent_amount', 'DESC');
-    else if (filters?.sort === 'latest') qb.orderBy('m.create_time', 'DESC');
-    else if (filters?.sort === 'distance' && filters?.latitude != null && filters?.longitude != null) {
+    if (filters?.sort === 'price_asc') qb.orderBy('m.rentAmount', 'ASC');
+    else if (filters?.sort === 'price_desc')
+      qb.orderBy('m.rentAmount', 'DESC');
+    else if (filters?.sort === 'latest') qb.orderBy('m.createTime', 'DESC');
+    else if (
+      filters?.sort === 'distance' &&
+      filters?.latitude != null &&
+      filters?.longitude != null
+    ) {
       const lat = parseFloat(filters.latitude);
       const lng = parseFloat(filters.longitude);
       const expr = `(6371000 * acos(least(1, cos(radians(${lat})) * cos(radians(m.latitude)) * cos(radians(m.longitude) - radians(${lng})) + sin(radians(${lat})) * sin(radians(m.latitude)))))`;
       qb.orderBy(expr, 'ASC');
-    } else qb.orderBy('m.create_time', 'DESC');
-    const [list, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
-    return { list, total };
+    } else qb.orderBy('m.createTime', 'DESC');
+    const [list, total] = await qb
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+    const safeList = list.map((m) => {
+      const { user, ...rest } = m as any;
+      let safeUser: any = undefined;
+      if (user) {
+        const decryptedPhone =
+          user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+        safeUser = {
+          id: user.id,
+          nickname: user.nickname,
+          avatar: user.avatar,
+          role: user.role,
+          realNameStatus: user.realNameStatus,
+          phone: decryptedPhone,
+        };
+      }
+      return { ...rest, user: safeUser } as Machine & { user?: any };
+    });
+    return { list: safeList, total };
   }
 
-  findOne(id: string): Promise<Machine | null> {
-    return this.machinesRepository.findOne({ where: { id }, relations: ['user'] });
+  async findOne(id: string): Promise<Machine | null> {
+    const machine = await this.machinesRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+    if (!machine) return null;
+    const { user, ...rest } = machine as any;
+    let safeUser: any = undefined;
+    if (user) {
+      const decryptedPhone =
+        user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+      safeUser = {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        role: user.role,
+        realNameStatus: user.realNameStatus,
+        phone: decryptedPhone,
+      };
+    }
+    return { ...rest, user: safeUser } as Machine & { user?: any };
   }
 
   async create(createMachineDto: CreateMachineDto): Promise<Machine> {
+    await this.usersService.ensureUserCanPublish(createMachineDto.userId);
+    const images = normalizeFileItems(createMachineDto.images);
+    const video = normalizeFileItem(createMachineDto.video);
     const payload = {
       ...createMachineDto,
-      rentStartDate: createMachineDto.rentStartDate ? new Date(createMachineDto.rentStartDate) : undefined,
-      rentEndDate: createMachineDto.rentEndDate ? new Date(createMachineDto.rentEndDate) : undefined,
-      isLongTerm: createMachineDto.isLongTerm ?? 'N',
+      images,
+      video,
+      rentStartDate: createMachineDto.rentStartDate
+        ? new Date(createMachineDto.rentStartDate)
+        : undefined,
+      rentEndDate: createMachineDto.rentEndDate
+        ? new Date(createMachineDto.rentEndDate)
+        : undefined,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      isLongTerm: createMachineDto.isLongTerm ?? Constants.NO,
     };
     const machine = this.machinesRepository.create(payload);
     return this.machinesRepository.save(machine);
   }
 
-  async update(id: string, updateMachineDto: UpdateMachineDto): Promise<Machine | null> {
+  async update(
+    id: string,
+    updateMachineDto: UpdateMachineDto,
+  ): Promise<Machine | null> {
     const payload = { ...updateMachineDto } as Record<string, unknown>;
-    if (payload.rentStartDate) payload.rentStartDate = new Date(payload.rentStartDate as string);
-    if (payload.rentEndDate) payload.rentEndDate = new Date(payload.rentEndDate as string);
+    if (payload.rentStartDate)
+      payload.rentStartDate = new Date(payload.rentStartDate as string);
+    if (payload.rentEndDate)
+      payload.rentEndDate = new Date(payload.rentEndDate as string);
+    if (payload.images !== undefined)
+      payload.images = normalizeFileItems(
+        payload.images as (string | FileItemDto)[],
+      );
+    if (payload.video !== undefined)
+      payload.video = normalizeFileItem(payload.video as string | FileItemDto);
     await this.machinesRepository.update(id, payload);
-    return this.machinesRepository.findOne({ where: { id }, relations: ['user'] });
+    return this.machinesRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
   }
 
   async remove(id: string): Promise<void> {

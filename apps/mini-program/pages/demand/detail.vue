@@ -4,6 +4,23 @@
       <uni-load-more status="loading" />
     </view>
     <template v-else-if="demand.id">
+      <!-- 轮播图/视频 -->
+      <view v-if="mediaItems(demand).length" class="card banner-card">
+        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7">
+          <swiper-item v-for="(m, idx) in mediaItems(demand)" :key="idx">
+            <image
+              v-if="m.type === 'image'"
+              :src="getFileViewUrl(m.value) || '/static/default_machine.png'"
+              mode="aspectFill"
+              class="banner-img"
+            />
+            <view v-else class="banner-video-wrap" @click.stop>
+              <video class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
+              <view class="video-badge">视频</view>
+            </view>
+          </swiper-item>
+        </swiper>
+      </view>
       <!-- 类型与状态 -->
       <view class="card head-card">
         <view class="tag-row">
@@ -63,7 +80,7 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 
 export default {
@@ -90,6 +107,14 @@ export default {
     else this.loading = false;
   },
   methods: {
+    getFileViewUrl,
+    mediaItems(item) {
+      const list = [];
+      if (item && item.video) list.push({ type: 'video', value: item.video });
+      const imgs = Array.isArray(item && item.images) ? item.images : [];
+      imgs.forEach((img) => list.push({ type: 'image', value: img }));
+      return list;
+    },
     fetchDetail(id) {
       this.loading = true;
       apiService
@@ -150,6 +175,11 @@ export default {
   padding: 16px;
   margin-bottom: 12px;
 }
+.banner-card { padding: 0; margin: 0 16px 12px; }
+.banner { height: 240px; border-radius: 16px; }
+.banner-img { width: 100%; height: 100%; }
+.banner-video-wrap { position: relative; width: 100%; height: 100%; }
+.video-badge { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff; }
 .head-card {
   .tag-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .tag { padding: 4px 10px; border-radius: 8px; font-size: 12px; }

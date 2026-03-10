@@ -14,6 +14,9 @@ export class Favorite {
   @Column({ name: 'ref_id', type: 'bigint' })
   refId: string;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
 }

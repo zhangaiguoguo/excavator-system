@@ -97,6 +97,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { listData, getData, addData, updateData, delData } from '@/api/dict';
 import type { DictData } from '@excavator/types';
+import { useListRefresh } from '@/hooks/useListRefresh';
 
 const route = useRoute();
 const router = useRouter();
@@ -140,6 +141,7 @@ function getList() {
     loading.value = false;
   });
 }
+const refreshList = useListRefresh(getList);
 
 function handleQuery() {
   queryParams.dictType = dictType.value;
@@ -191,7 +193,7 @@ function submitForm() {
     updateData(form).then(() => {
       message.success('修改成功');
       open.value = false;
-      getList();
+      refreshList();
     }).finally(() => {
       submitLoading.value = false;
     });
@@ -199,7 +201,7 @@ function submitForm() {
     addData(form).then(() => {
       message.success('新增成功');
       open.value = false;
-      getList();
+      refreshList();
     }).finally(() => {
       submitLoading.value = false;
     });
@@ -209,7 +211,7 @@ function submitForm() {
 function handleDelete(row: DictData) {
   delData(row.id).then(() => {
     message.success('删除成功');
-    getList();
+    refreshList();
   });
 }
 

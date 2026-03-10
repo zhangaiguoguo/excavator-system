@@ -54,8 +54,14 @@ export class User implements IUser {
   @Column({ name: 'last_login_at', type: 'datetime', nullable: true })
   lastLoginAt: Date;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
+
+  @Column({ name: 'update_by', length: 64, default: '' })
+  updateBy: string;
 
   @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;

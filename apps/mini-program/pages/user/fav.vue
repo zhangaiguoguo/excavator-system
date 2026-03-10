@@ -26,7 +26,7 @@
             class="card"
             @click="goMachine(item.id)"
           >
-            <image class="card-img" :src="(item.images && item.images[0]) || '/static/default_machine.png'" mode="aspectFill" />
+            <image class="card-img" :src="getFileViewUrl(item.images && item.images[0]) || '/static/default_machine.png'" mode="aspectFill" />
             <view class="card-body">
               <text class="card-title">{{ item.model }}</text>
               <text class="card-meta">¥{{ item.rentAmount }}/{{ rentUnitLabel(item.rentUnit) }} · {{ item.province }}{{ item.city }}</text>
@@ -87,7 +87,7 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
 
@@ -126,6 +126,7 @@ export default {
     this.fetchFav().finally(() => uni.stopPullDownRefresh());
   },
   methods: {
+    getFileViewUrl,
     rentUnitLabel(v) {
       const arr = this.work_hours_unit?.value ?? this.work_hours_unit ?? [];
       const o = arr.find(d => d.value === v);

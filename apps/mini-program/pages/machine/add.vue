@@ -12,42 +12,24 @@
 					<uni-data-select v-model="form.conditionType" :localdata="conditionOptions"
 						placeholder="请选择"></uni-data-select>
 				</uni-forms-item>
-				<view class="form-row">
-					<uni-forms-item label="租赁价格" name="rentAmount" required class="flex1">
-						<view class="w-full">
-							<view class="w-half">
-								<uni-easyinput type="number" v-model="form.rentAmount" placeholder="请输入"></uni-easyinput>
-							</view>
-							<view class="w-half">
-								<uni-data-select v-model="form.rentUnit" :localdata="rentUnitOptions"
-									placeholder="单位"></uni-data-select>
-							</view>
+				<uni-forms-item label="租赁价格" name="rentAmount" required class="flex1 w-full">
+					<view class="w-full flex">
+						<view class="w-half">
+							<uni-easyinput type="number" v-model="form.rentAmount" placeholder="请输入"></uni-easyinput>
 						</view>
-					</uni-forms-item>
-				</view>
-				<uni-forms-item label="可租赁时段" required>
-					<view class="date-row">
-						<uni-datetime-picker
-							type="date"
-							v-model="form.rentStartDate"
-							:start="''"
-							:end="''"
-							:clear-icon="false"
-							placeholder="开始日期"
-						/>
-						<text class="to">至</text>
-						<uni-datetime-picker
-							type="date"
-							v-model="form.rentEndDate"
-							:start="form.rentStartDate || ''"
-							:end="''"
-							:clear-icon="false"
-							placeholder="结束日期"
-						/>
+						<view class="w-half pl-2">
+							<uni-data-select v-model="form.rentUnit" :localdata="rentUnitOptions"
+								placeholder="单位"></uni-data-select>
+						</view>
 					</view>
+				</uni-forms-item>
+				<uni-forms-item label="可租赁时段" required>
+					<uni-datetime-picker type="daterange" v-model="rentDateRange" range-separator="至"
+						@change="form.isLongTerm = Constants.NO" start-placeholder="开始日期" end-placeholder="结束日期"
+						:clear-icon="false" />
 					<view class="checkbox-row">
-						<uni-data-checkbox v-model="form.isLongTerm"
-							:localdata="[{ text: '长期可租', value: 'Y' }]"></uni-data-checkbox>
+						<uni-data-checkbox v-model="form.isLongTerm" @change="rentDateRange=[]"
+							:localdata="[{ text: '长期可租', value: Constants.YES }]"></uni-data-checkbox>
 					</view>
 				</uni-forms-item>
 				<uni-forms-item label="设备位置" required>
@@ -77,6 +59,11 @@
 	import LocationPicker from '@/components/LocationPicker.vue';
 	import UploadImageList from '@/components/UploadImageList.vue';
 	import UploadVideo from '@/components/UploadVideo.vue';
+	import appStore from '@/store/app';
+	import { JSONStringify } from '../../common/util/util';
+	import { setListRefreshHint } from '@/common/util/listRefresh.js';
+	import { checkUserCanPublish } from '@/common/util/publishCheck.js';
+	import { Constants } from '@excavator/types';
 
 	export default {
 		components: {
@@ -86,6 +73,8 @@
 		},
 		data() {
 			return {
+				Constants,
+				rentDateRange: [],
 				locationValue: {
 					province: '',
 					city: '',
@@ -101,7 +90,7 @@
 					rentUnit: '',
 					rentStartDate: '',
 					rentEndDate: '',
-					isLongTerm: 'N',
+					isLongTerm: Constants.NO,
 					province: '',
 					city: '',
 					district: '',
@@ -173,16 +162,18 @@
 							errorMessage: '请填写详细地址'
 						}]
 					},
-					images: {
-						rules: [{
-							required: true,
-							errorMessage: '请至少上传1张图片'
-						}]
-					}
 				}
 			};
 		},
 		watch: {
+			rentDateRange: {
+				handler(arr) {
+					const a = Array.isArray(arr) ? arr : [];
+					this.form.rentStartDate = a[0] || '';
+					this.form.rentEndDate = a[1] || '';
+				},
+				deep: true,
+			},
 			locationValue: {
 				deep: true,
 				handler(v) {
@@ -197,16 +188,25 @@
 				},
 			},
 		},
+		computed: {
+			userInfo() {
+				return appStore().state.userInfo;
+			}
+		},
 		onLoad() {
-			this.form.userId = uni.getStorageSync('userId') || '';
+			if (!this.userInfo?.id) {
+				this.$tip.alert("您还未登录系统！")
+				setTimeout(() => uni.navigateBack(), 1500);
+			}
 		},
 		methods: {
 			submit() {
+				const publishCheck = checkUserCanPublish(this.userInfo);
+				if (!publishCheck.can) {
+					this.$tip.alert(publishCheck.message);
+					return;
+				}
 				this.$refs.formRef.validate().then(() => {
-					if (!this.form.userId) {
-						this.$tip.alert('请先登录');
-						return;
-					}
 					if (!this.form.images || this.form.images.length === 0) {
 						this.$tip.alert('请至少上传1张图片');
 						return;
@@ -217,16 +217,19 @@
 					}
 					const payload = {
 						...this.form,
+						userId: this.form.userId || this.userInfo.id,
 						rentAmount: Number(this.form.rentAmount),
 						rentStartDate: this.form.rentStartDate,
 						rentEndDate: this.form.rentEndDate,
-						images: this.form.images,
-						video: this.form.video || undefined
+						images: (this.form.images),
+						video: (this.form.video) || undefined
 					};
 					this.$tip.loading('发布中...');
 					apiService.createMachine(payload).then(() => {
 						this.$tip.loaded();
 						this.$tip.success('发布成功');
+						setListRefreshHint('machine');
+						setListRefreshHint('publish');
 						setTimeout(() => uni.navigateBack(), 1500);
 					}).catch(err => {
 						this.$tip.loaded();

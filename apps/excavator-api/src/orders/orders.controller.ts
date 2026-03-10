@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { Order } from './order.entity';
 import { CreateDemandDto } from './dto/create-demand.dto';
 import { UpdateDemandDto } from './dto/update-demand.dto';
+import { getRequiredUserId } from '../common/get-user-id';
 
 /** 需求模块：需求方发布 求租设备/招聘机手 PRD 4.3 */
 @Controller('demands')
@@ -37,8 +38,9 @@ export class OrdersController {
   }
 
   @Post()
-  create(@Body() dto: CreateDemandDto): Promise<Order> {
-    return this.ordersService.create(dto);
+  create(@Request() req: any, @Body() dto: CreateDemandDto): Promise<Order> {
+    const userId = getRequiredUserId(req);
+    return this.ordersService.create({ ...dto, userId });
   }
 
   @Put(':id')

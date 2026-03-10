@@ -85,6 +85,22 @@
         class="card"
         @click="goDetail(item.id)"
       >
+        <view class="card-media">
+          <swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1">
+            <swiper-item v-for="(m, idx) in mediaItems(item)" :key="idx">
+              <image
+                v-if="m.type === 'image'"
+                class="card-img"
+                :src="getFileViewUrl(m.value) || '/static/default_machine.png'"
+                mode="aspectFill"
+              />
+              <view v-else class="card-video-wrap" @click.stop>
+                <video class="card-img" :src="getFileViewUrl(m.value)" controls />
+                <view class="video-badge">视频</view>
+              </view>
+            </swiper-item>
+          </swiper>
+        </view>
         <view class="card-tag" :class="item.type === '2' ? 'job' : 'rent'">
           {{ item.type === '2' ? '招聘机手' : '求租设备' }}
         </view>
@@ -118,8 +134,9 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import { useDictOne } from '@/hooks/useDict';
+import { tryRefreshList } from '@/common/util/listRefresh.js';
 
 export default {
   data() {
@@ -159,6 +176,9 @@ export default {
   onLoad() {
     this.fetchDemands(true);
   },
+  onShow() {
+    tryRefreshList('demand', () => this.fetchDemands(true));
+  },
   onReachBottom() {
     this.loadMore();
   },
@@ -166,6 +186,15 @@ export default {
     this.fetchDemands(true).finally(() => uni.stopPullDownRefresh());
   },
   methods: {
+    getFileViewUrl,
+    mediaItems(item) {
+      const list = [];
+      if (item.video) list.push({ type: 'video', value: item.video });
+      const imgs = Array.isArray(item.images) ? item.images : [];
+      imgs.forEach((img) => list.push({ type: 'image', value: img }));
+      if (list.length === 0) list.push({ type: 'image', value: null });
+      return list;
+    },
     descSlice(s) {
       if (!s) return '需求';
       return s.length > 36 ? s.slice(0, 36) + '...' : s;
@@ -331,10 +360,39 @@ export default {
 .card {
   background: #fff;
   border-radius: 12px;
-  padding: 14px 16px;
   margin-bottom: 12px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   position: relative;
+  overflow: hidden;
+}
+.card-media {
+  width: 100%;
+  height: 180px;
+  background: #f0f2f5;
+}
+.card-swiper {
+  width: 100%;
+  height: 100%;
+}
+.card-img {
+  width: 100%;
+  height: 100%;
+  background: #f0f2f5;
+}
+.card-video-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.video-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
 }
 .card-tag {
   position: absolute;
@@ -346,7 +404,7 @@ export default {
   &.rent { background: #e3f2fd; color: #1976d2; }
   &.job { background: #f3e5f5; color: #7b1fa2; }
 }
-.card-body { padding-right: 70px; }
+.card-body { padding: 14px 16px; padding-right: 70px; }
 .card-desc {
   font-size: 15px;
   color: #1a1a1a;

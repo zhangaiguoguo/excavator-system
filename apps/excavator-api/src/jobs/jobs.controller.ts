@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, Query, Request } from '@nestjs/common';
 import { JobsService } from './jobs.service';
 import { Job } from './job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { getRequiredUserId } from '../common/get-user-id';
 
 /** 揽活模块：揽活方发布服务信息 PRD 4.2.2 */
 @Controller('jobs')
@@ -30,8 +31,9 @@ export class JobsController {
   }
 
   @Post()
-  create(@Body() dto: CreateJobDto): Promise<Job> {
-    return this.jobsService.create(dto);
+  create(@Request() req: any, @Body() dto: CreateJobDto): Promise<Job> {
+    const userId = getRequiredUserId(req);
+    return this.jobsService.create({ ...dto, userId });
   }
 
   @Put(':id')

@@ -81,6 +81,7 @@ import { message } from 'ant-design-vue';
 import { listType, getType, addType, updateType, delType } from '@/api/dict';
 import type { DictType } from '@excavator/types';
 import { useRouter } from 'vue-router';
+import { useListRefresh } from '@/hooks/useListRefresh';
 
 const router = useRouter();
 const loading = ref(false);
@@ -119,6 +120,7 @@ function getList() {
     loading.value = false;
   });
 }
+const refreshList = useListRefresh(getList);
 
 function handleQuery() {
   getList();
@@ -162,7 +164,7 @@ function submitForm() {
     updateType(form).then(() => {
       message.success('修改成功');
       open.value = false;
-      getList();
+      refreshList();
     }).finally(() => {
       submitLoading.value = false;
     });
@@ -170,7 +172,7 @@ function submitForm() {
     addType(form).then(() => {
       message.success('新增成功');
       open.value = false;
-      getList();
+      refreshList();
     }).finally(() => {
       submitLoading.value = false;
     });
@@ -180,7 +182,7 @@ function submitForm() {
 function handleDelete(row: DictType) {
   delType(row.id).then(() => {
     message.success('删除成功');
-    getList();
+    refreshList();
   });
 }
 

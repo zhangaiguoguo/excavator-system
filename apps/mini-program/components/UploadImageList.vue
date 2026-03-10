@@ -1,8 +1,8 @@
 <template>
   <view class="upload-images">
     <view class="img-list">
-      <view v-for="(id, i) in innerValue" :key="i" class="img-item" @click="preview(i)">
-        <image :src="getUrl(id)" mode="aspectFill" />
+      <view v-for="(item, i) in innerValue" :key="i" class="img-item" @click="preview(i)">
+        <image :src="getUrl(item)" mode="aspectFill" />
         <view class="del" @click.stop="remove(i)">×</view>
       </view>
       <view v-if="innerValue.length < max" class="add-img" @click="chooseImages">
@@ -16,6 +16,18 @@
 
 <script>
 import apiService, { patchNewFileViewPath } from '@/api/api';
+
+function normalizeItem(it) {
+  if (!it) return null;
+  if (typeof it === 'string') return { fileId: it, fileName: it };
+  if (it.fileId || it.fileName) return { fileId: it.fileId || it.fileName, fileName: it.fileName || it.fileId };
+  return null;
+}
+
+function normalizeList(val) {
+  if (!Array.isArray(val)) return [];
+  return val.map(normalizeItem).filter(Boolean);
+}
 
 export default {
   name: 'UploadImageList',
@@ -35,25 +47,27 @@ export default {
   },
   data() {
     return {
-      innerValue: Array.isArray(this.value) ? [...this.value] : [],
+      innerValue: normalizeList(this.value),
     };
   },
   watch: {
     value: {
       deep: true,
       handler(v) {
-        this.innerValue = Array.isArray(v) ? [...v] : [];
+        this.innerValue = normalizeList(v);
       },
     },
   },
   methods: {
-    getUrl(id) {
-      if (!id) return '';
-      return patchNewFileViewPath(id);
+    getUrl(item) {
+      const name = item && (item.fileName || item.fileId);
+      return name ? patchNewFileViewPath(name) : '';
     },
     emitChange() {
-      this.$emit('input', [...this.innerValue]);
-      this.$emit('change', [...this.innerValue]);
+      const out = this.innerValue.map((it) => ({ fileId: it.fileId, fileName: it.fileName }));
+      this.$emit('input', out);
+      this.$emit('update:modelValue', out);
+      this.$emit('change', out);
     },
     async chooseImages() {
       const remain = this.max - (this.innerValue || []).length;
@@ -69,8 +83,8 @@ export default {
           this.$tip && this.$tip.loading('上传中...');
           try {
             for (const f of res.tempFilePaths) {
-              const { fileId } = await apiService.uploadFile(f);
-              if (fileId) this.innerValue.push(fileId);
+              const { fileId, fileName } = await apiService.uploadFile(f);
+              if (fileId || fileName) this.innerValue.push({ fileId: fileId || fileName, fileName: fileName || fileId });
             }
             this.$tip && this.$tip.loaded();
             this.$tip && this.$tip.success('上传成功');
@@ -87,7 +101,7 @@ export default {
       this.emitChange();
     },
     preview(index) {
-      const urls = this.innerValue.map((id) => this.getUrl(id));
+      const urls = this.innerValue.map((item) => this.getUrl(item));
       if (!urls.length) return;
       uni.previewImage({
         current: urls[index],

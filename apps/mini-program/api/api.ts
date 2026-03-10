@@ -37,8 +37,8 @@ class ApiServer {
 		return configService.apiUrl + $uploadFileUrl;
 	}
 
-	/** 上传文件（图片/视频），filePath 为 chooseImage/chooseVideo 返回的临时路径，返回上传后的 fileId 与 url */
-	uploadFile(filePath : string) : Promise<{ fileId : string; url : string }> {
+	/** 上传文件（图片/视频），返回 { fileId, fileName } 用于 JSON 存库，回显用 patchNewFileViewPath(fileName) */
+	uploadFile(filePath: string): Promise<{ fileId: string; fileName: string; url: string }> {
 		return new Promise((resolve, reject) => {
 			const token = getToken();
 			uni.uploadFile({
@@ -55,8 +55,8 @@ class ApiServer {
 							const body = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
 							const inner = body?.data || body || {};
 							const url = inner.url || '';
-							const fileId = inner.fileName || inner.path || '';
-							resolve({ fileId, url });
+							const pathVal = inner.fileName || inner.path || '';
+							resolve({ fileId: pathVal, fileName: pathVal, url });
 						} catch (e) {
 							reject(e);
 						}
@@ -157,11 +157,18 @@ class ApiServer {
 const apiService = new ApiServer();
 const baseUrl = configService.apiUrl + $viewFileUrl.slice(0, -1);
 
-export function patchNewFileViewPath(fileName) {
+export function patchNewFileViewPath(fileName: string) {
 	const safeName = encodeURIComponent(String(fileName || ''));
 	const token = getToken() || '';
 	const safeToken = token ? encodeURIComponent(token) : '';
 	return baseUrl + `?fileName=${safeName}` + (safeToken ? `&token=${safeToken}` : '');
+}
+
+/** 兼容 string 或 { fileId, fileName }，返回用于回显的完整 URL */
+export function getFileViewUrl(item: string | { fileId?: string; fileName?: string } | null | undefined): string {
+	if (!item) return '';
+	const name = typeof item === 'string' ? item : (item.fileName || item.fileId || '');
+	return name ? patchNewFileViewPath(name) : '';
 }
 
 export default apiService;

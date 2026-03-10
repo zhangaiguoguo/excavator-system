@@ -1,3 +1,9 @@
+/** 文件项：存库与接口统一用 JSON { fileId, fileName } */
+export interface FileItemDto {
+  fileId: string;
+  fileName: string;
+}
+
 export class CreateMachineDto {
   userId: string;
   type: string; // dict: machine_type
@@ -7,8 +13,8 @@ export class CreateMachineDto {
   conditionType: string; // dict: machine_condition
   rentAmount: number;
   rentUnit: string; // dict: work_hours_unit
-  rentStartDate: string; // YYYY-MM-DD
-  rentEndDate: string;
+  rentStartDate?: string; // YYYY-MM-DD
+  rentEndDate?: string;
   isLongTerm?: string; // Y | N
   province: string;
   city: string;
@@ -18,6 +24,6 @@ export class CreateMachineDto {
   latitude?: number;
   longitude?: number;
   description?: string;
-  images: string[]; // 1-5 张
-  video?: string; // 最多 1 个
+  images: FileItemDto[]; // 1-5 张，每项 { fileId, fileName }
+  video?: FileItemDto | string; // 单个，{ fileId, fileName } 或兼容旧 string
 }

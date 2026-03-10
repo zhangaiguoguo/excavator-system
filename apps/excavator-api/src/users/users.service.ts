@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
-import { UserRealNameStatus } from '@excavator/types';
+import { UserRealNameStatus, Constants } from '@excavator/types';
 import { CryptoService } from '../common/crypto/crypto.service';
 
 @Injectable()
@@ -62,6 +62,25 @@ export class UsersService {
   async findByOpenId(wxOpenid: string): Promise<User | null> {
     const user = await this.usersRepository.findOneBy({ wxOpenid });
     return this.decryptUser(user);
+  }
+
+  /**
+   * 校验用户是否可发布（设备/需求/揽活等）：必须已绑定手机号且已通过实名认证
+   * @throws BadRequestException 未绑定手机或未实名认证时
+   */
+  async ensureUserCanPublish(userId: string): Promise<User> {
+    const user = await this.findOne(userId);
+    if (!user) {
+      throw new BadRequestException('用户不存在');
+    }
+    const phone = user.phone?.trim() || '';
+    if (!phone || phone === Constants.DEFAULT_PHOTO) {
+      throw new BadRequestException('请先绑定手机号后再发布');
+    }
+    if (user.realNameStatus !== UserRealNameStatus.APPROVED) {
+      throw new BadRequestException('请先完成实名认证后再发布');
+    }
+    return user;
   }
 
   async create(userData: Partial<User>): Promise<User> {

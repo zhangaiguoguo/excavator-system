@@ -47,10 +47,10 @@ export class Order {
   description: string;
 
   @Column({ type: 'json', nullable: true })
-  images: string[];
+  images: Array<{ fileId: string; fileName: string }>;
 
-  @Column({ length: 512, nullable: true })
-  video: string;
+  @Column({ type: 'json', nullable: true })
+  video: { fileId: string; fileName: string } | string | null;
 
   @Column({ name: 'is_urgent', length: 1, default: 'N' })
   isUrgent: string; // dict: sys_yes_no
@@ -64,8 +64,14 @@ export class Order {
   @Column({ name: 'contact_count', default: 0 })
   contactCount: number;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
+
+  @Column({ name: 'update_by', length: 64, default: '' })
+  updateBy: string;
 
   @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;

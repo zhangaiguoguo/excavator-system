@@ -1,35 +1,40 @@
-import { Controller, Get, Post, Delete, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Query, Body, Request } from '@nestjs/common';
 import { FavoritesService } from './favorites.service';
+import { getRequiredUserId } from '../common/get-user-id';
 
 @Controller('favorites')
 export class FavoritesController {
   constructor(private readonly favoritesService: FavoritesService) {}
 
   @Get()
-  list(@Query('userId') userId: string) {
+  list(@Request() req: any) {
+    const userId = getRequiredUserId(req);
     return this.favoritesService.list(userId);
   }
 
   @Post()
-  add(@Body() body: { userId: string; refType: string; refId: string }) {
-    return this.favoritesService.add(body.userId, body.refType, body.refId);
+  add(@Request() req: any, @Body() body: { refType: string; refId: string }) {
+    const userId = getRequiredUserId(req);
+    return this.favoritesService.add(userId, body.refType, body.refId);
   }
 
   @Delete()
   remove(
-    @Query('userId') userId: string,
+    @Request() req: any,
     @Query('refType') refType: string,
     @Query('refId') refId: string,
   ) {
+    const userId = getRequiredUserId(req);
     return this.favoritesService.remove(userId, refType, refId);
   }
 
   @Get('check')
   check(
-    @Query('userId') userId: string,
+    @Request() req: any,
     @Query('refType') refType: string,
     @Query('refId') refId: string,
   ) {
+    const userId = getRequiredUserId(req);
     return this.favoritesService.isFav(userId, refType, refId);
   }
 }

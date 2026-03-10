@@ -20,7 +20,7 @@
         class="card"
         @click="goMachineDetail(item.id)"
       >
-        <image class="card-img" :src="(item.images && item.images[0]) || '/static/default_machine.png'" mode="aspectFill" />
+        <image class="card-img" :src="getFileViewUrl(item.images && item.images[0]) || '/static/default_machine.png'" mode="aspectFill" />
         <view class="card-body">
           <text class="card-title">{{ item.model }}</text>
           <text class="card-meta">{{ item.province }} {{ item.city }} · ¥{{ item.rentAmount }}/{{ rentUnitLabel(item.rentUnit) }}</text>
@@ -88,9 +88,10 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
+import { tryRefreshList } from '@/common/util/listRefresh.js';
 
 export default {
   data() {
@@ -123,12 +124,13 @@ export default {
     this.fetchCurrent();
   },
   onShow() {
-    if (this.userId) this.fetchCurrent();
+    tryRefreshList('publish', () => this.fetchCurrent());
   },
   onPullDownRefresh() {
     this.fetchCurrent().finally(() => uni.stopPullDownRefresh());
   },
   methods: {
+    getFileViewUrl,
     rentUnitLabel(v) {
       const arr = this.work_hours_unit?.value ?? this.work_hours_unit ?? [];
       const o = arr.find(d => d.value === v);

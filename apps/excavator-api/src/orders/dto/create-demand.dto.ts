@@ -1,3 +1,9 @@
+/** 文件项：存库与接口统一用 JSON { fileId, fileName } */
+export interface FileItemDto {
+  fileId: string;
+  fileName: string;
+}
+
 /** 需求方发布需求 PRD 4.3：求租设备 / 招聘机手 */
 export class CreateDemandDto {
   userId: string;
@@ -12,7 +18,7 @@ export class CreateDemandDto {
   budgetMin?: number;
   budgetMax?: number;
   description: string;
-  images?: string[]; // 至少1张，最多5张
-  video?: string; // 选填
+  images?: FileItemDto[]; // 至少1张，最多5张，每项 { fileId, fileName }
+  video?: FileItemDto | string; // 选填，{ fileId, fileName } 或兼容旧 string
   isUrgent?: string; // 'Y' | 'N'
 }

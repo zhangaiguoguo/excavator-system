@@ -55,8 +55,14 @@ export class Contract {
   @Column({ type: 'tinyint', default: 0 })
   status: number;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
+
+  @Column({ name: 'update_by', length: 64, default: '' })
+  updateBy: string;
 
   @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;

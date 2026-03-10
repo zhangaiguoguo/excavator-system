@@ -30,6 +30,9 @@
 				const user = uni.getStorageSync('userInfo');
 				if (user) {
 					await apiService.getUser(user.id).then(r => {
+						if (!r.data) {
+							this.$tip.error("登录异常，请重新登录")
+						}
 						appStore().setUser(r.data)
 					})
 				}
@@ -99,6 +102,7 @@
 		margin-bottom: 16px;
 		overflow: hidden;
 	}
+
 	/* 搜索框规范 */
 	.search-box-style {
 		height: 36px;

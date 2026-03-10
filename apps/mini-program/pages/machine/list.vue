@@ -81,8 +81,22 @@
 		<!-- 列表 -->
 		<view class="list">
 			<view v-for="item in machines" :key="item.id" class="card" @click="goDetail(item.id)">
-				<image class="card-img" :src="(item.images && item.images[0]) || '/static/default_machine.png'"
-					mode="aspectFill" />
+				<view class="card-media">
+					<swiper class="card-swiper" circular :indicator-dots="mediaItems(item).length > 1">
+						<swiper-item v-for="(m, idx) in mediaItems(item)" :key="idx">
+							<image
+								v-if="m.type === 'image'"
+								class="card-img"
+								:src="getFileViewUrl(m.value) || '/static/default_machine.png'"
+								mode="aspectFill"
+							/>
+							<view v-else class="card-video-wrap" @click.stop>
+								<video class="card-img" :src="getFileViewUrl(m.value)" controls />
+								<view class="video-badge">视频</view>
+							</view>
+						</swiper-item>
+					</swiper>
+				</view>
 				<view class="card-body">
 					<view class="card-title-row">
 						<text
@@ -120,10 +134,9 @@
 </template>
 
 <script>
-	import apiService from '@/api/api';
-	import {
-		useDictOne
-	} from '@/hooks/useDict';
+	import apiService, { getFileViewUrl } from '@/api/api';
+	import { useDictOne } from '@/hooks/useDict';
+	import { tryRefreshList } from '@/common/util/listRefresh.js';
 
 	export default {
 		data() {
@@ -144,7 +157,7 @@
 					province: '',
 					city: '',
 					district: '',
-					sort: 'latest',
+					sort: 'distance',
 				},
 				location: {
 					latitude: null,
@@ -196,7 +209,10 @@
 			};
 		},
 		onLoad() {
-			this.fetchMachines(true);
+			this.initByLocation();
+		},
+		onShow() {
+			tryRefreshList('machine', () => this.fetchMachines(true));
 		},
 		onReachBottom() {
 			this.loadMore();
@@ -205,6 +221,18 @@
 			this.fetchMachines(true).finally(() => uni.stopPullDownRefresh());
 		},
 		methods: {
+			getFileViewUrl,
+			imageUrl(images) {
+				return images && images[0] ? getFileViewUrl(images[0]) : '';
+			},
+			mediaItems(item) {
+				const list = [];
+				if (item.video) list.push({ type: 'video', value: item.video });
+				const imgs = Array.isArray(item.images) ? item.images : [];
+				imgs.forEach(img => list.push({ type: 'image', value: img }));
+				if (list.length === 0) list.push({ type: 'image', value: null });
+				return list;
+			},
 			conditionLabel(v) {
 				const arr = this.dictOptions.machine_condition?.value ?? this.dictOptions.machine_condition ?? [];
 				const o = arr.find(x => x.value === v);
@@ -303,7 +331,7 @@
 				});
 			},
 			contactOwner(item) {
-				const phone = item?.user?.phone || '13800138000';
+				const phone = item?.user?.phone;
 				if (phone) uni.makePhoneCall({
 					phoneNumber: String(phone)
 				});
@@ -455,11 +483,38 @@
 		box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 	}
 
-	.card-img {
+	.card-media {
 		width: 120px;
 		height: 120px;
 		flex-shrink: 0;
 		background: #f0f2f5;
+		overflow: hidden;
+	}
+
+	.card-swiper {
+		width: 100%;
+		height: 100%;
+	}
+
+	.card-img {
+		width: 100%;
+		height: 100%;
+		background: #f0f2f5;
+	}
+	.card-video-wrap {
+		position: relative;
+		width: 100%;
+		height: 100%;
+	}
+	.video-badge {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		font-size: 11px;
+		padding: 2px 8px;
+		border-radius: 4px;
+		background: rgba(0,0,0,0.5);
+		color: #fff;
 	}
 
 	.card-body {

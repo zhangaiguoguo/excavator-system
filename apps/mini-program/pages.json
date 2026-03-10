@@ -94,7 +94,8 @@
 		{
 			"path": "pages/record/list",
 			"style": {
-				"navigationBarTitleText": "记账本"
+				"navigationBarTitleText": "记账本",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -114,13 +115,21 @@
 			"style": {
 				"navigationBarTitleText": "需求详情"
 			}
+		},
+		{
+			"path": "pages/video/index",
+			"style": {
+				"navigationBarTitleText": "视频",
+				"navigationBarBackgroundColor": "#000"
+			}
 		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "挖掘机之家",
 		"navigationBarBackgroundColor": "#FFFFFF",
-		"backgroundColor": "#F5F6F8"
+		"backgroundColor": "#F5F6F8",
+		"backgroundTextStyle": "dark"
 	},
 	"tabBar": {
 		"color": "#999999",

@@ -1,59 +1,120 @@
 <template>
   <view class="upload-video">
-    <view v-if="innerValue" class="video-wrap">
-      <video :src="url" controls class="video-preview"></video>
-      <view class="del" @click="clear">×</view>
-    </view>
-    <view v-else class="add-video" @click="chooseVideo">
-      <text>选择视频</text>
-      <text class="add-tip">选填，≤30秒</text>
-    </view>
+    <!-- 单个视频 max=1 -->
+    <template v-if="max === 1">
+      <view v-if="innerSingle" class="video-wrap">
+        <video :src="getUrl(innerSingle)" controls class="video-preview"></video>
+        <view class="del" @click="clearSingle">×</view>
+      </view>
+      <view v-else class="add-video" @click="chooseVideo">
+        <text>选择视频</text>
+        <text class="add-tip">{{ tip || '选填，≤30秒' }}</text>
+      </view>
+    </template>
+    <!-- 多个视频 max>1 -->
+    <template v-else>
+      <view v-for="(item, i) in innerList" :key="i" class="video-wrap">
+        <video :src="getUrl(item)" controls class="video-preview"></video>
+        <view class="del" @click="remove(i)">×</view>
+      </view>
+      <view v-if="innerList.length < max" class="add-video" @click="chooseVideo">
+        <text>添加视频</text>
+        <text class="add-tip">{{ tip || `最多${max}个，≤30秒` }}</text>
+      </view>
+      <text v-if="tip && innerList.length > 0" class="upload-tip">{{ tip }}</text>
+    </template>
   </view>
 </template>
 
 <script>
 import apiService, { patchNewFileViewPath } from '@/api/api';
 
+function normalizeVideoItem(it) {
+  if (!it) return null;
+  if (typeof it === 'string') return { fileId: it, fileName: it };
+  if (it.fileId || it.fileName) return { fileId: it.fileId || it.fileName, fileName: it.fileName || it.fileId };
+  return null;
+}
+
+function normalizeVideoList(val) {
+  if (!Array.isArray(val)) return [];
+  return val.map(normalizeVideoItem).filter(Boolean);
+}
+
 export default {
   name: 'UploadVideo',
   props: {
+    /** 单视频: { fileId, fileName } 或 ''；多视频: [{ fileId, fileName }, ...] */
     value: {
+      type: [String, Object, Array],
+      default: () => '',
+    },
+    max: {
+      type: Number,
+      default: 1,
+    },
+    tip: {
       type: String,
       default: '',
     },
   },
   data() {
     return {
-      innerValue: this.value || '',
+      innerSingle: null,
+      innerList: [],
     };
   },
-  computed: {
-    url() {
-      return this.innerValue ? patchNewFileViewPath(this.innerValue) : '';
-    },
-  },
   watch: {
-    value(v) {
-      this.innerValue = v || '';
+    value: {
+      immediate: true,
+      handler(v) {
+        if (this.max === 1) {
+          this.innerSingle = normalizeVideoItem(v) || null;
+        } else {
+          this.innerList = normalizeVideoList(v);
+        }
+      },
     },
   },
   methods: {
+    getUrl(item) {
+      const name = item && (item.fileName || item.fileId);
+      return name ? patchNewFileViewPath(name) : '';
+    },
     emitChange() {
-      this.$emit('input', this.innerValue);
-      this.$emit('change', this.innerValue);
+      if (this.max === 1) {
+        const out = this.innerSingle ? { fileId: this.innerSingle.fileId, fileName: this.innerSingle.fileName } : '';
+        this.$emit('input', out);
+        this.$emit('update:modelValue', out);
+        this.$emit('change', out);
+      } else {
+        const out = this.innerList.map((it) => ({ fileId: it.fileId, fileName: it.fileName }));
+        this.$emit('input', out);
+        this.$emit('update:modelValue', out);
+        this.$emit('change', out);
+      }
     },
     async chooseVideo() {
+      if (this.max > 1 && this.innerList.length >= this.max) {
+        this.$tip && this.$tip.alert(`最多上传${this.max}个视频`);
+        return;
+      }
       uni.chooseVideo({
         sourceType: ['album', 'camera'],
         maxDuration: 30,
         success: async (res) => {
           this.$tip && this.$tip.loading('上传中...');
           try {
-            const { fileId } = await apiService.uploadFile(res.tempFilePath);
-            this.innerValue = fileId || '';
+            const { fileId, fileName } = await apiService.uploadFile(res.tempFilePath);
+            const item = { fileId: fileId || fileName, fileName: fileName || fileId };
+            if (this.max === 1) {
+              this.innerSingle = item;
+            } else {
+              this.innerList.push(item);
+            }
+            this.emitChange();
             this.$tip && this.$tip.loaded();
             this.$tip && this.$tip.success('上传成功');
-            this.emitChange();
           } catch (e) {
             this.$tip && this.$tip.loaded();
             this.$tip && this.$tip.alert(e?.message || '上传失败');
@@ -61,8 +122,12 @@ export default {
         },
       });
     },
-    clear() {
-      this.innerValue = '';
+    clearSingle() {
+      this.innerSingle = null;
+      this.emitChange();
+    },
+    remove(index) {
+      this.innerList.splice(index, 1);
       this.emitChange();
     },
   },
@@ -116,5 +181,11 @@ export default {
   font-size: 12px;
   margin-top: 4px;
 }
+.upload-tip {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #999;
+}
 </style>
-

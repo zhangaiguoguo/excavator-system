@@ -2,14 +2,32 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
-import { CreateDemandDto } from './dto/create-demand.dto';
+import { UsersService } from '../users/users.service';
+import { CryptoService } from '../common/crypto/crypto.service';
+import { CreateDemandDto, FileItemDto } from './dto/create-demand.dto';
 import { UpdateDemandDto } from './dto/update-demand.dto';
+
+function normalizeFileItem(
+  v: string | FileItemDto | undefined | null,
+): { fileId: string; fileName: string } | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string') return { fileId: v, fileName: v };
+  if (v.fileId || v.fileName) return { fileId: v.fileId || v.fileName, fileName: v.fileName || v.fileId };
+  return null;
+}
+
+function normalizeFileItems(v: (string | FileItemDto)[] | undefined): Array<{ fileId: string; fileName: string }> {
+  if (!Array.isArray(v)) return [];
+  return v.map((it) => normalizeFileItem(it)).filter((x): x is { fileId: string; fileName: string } => x != null);
+}
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private ordersRepository: Repository<Order>,
+    private cryptoService: CryptoService,
+    private usersService: UsersService,
   ) {}
 
   async findAll(filters?: {
@@ -44,14 +62,50 @@ export class OrdersService {
     else if (filters?.sort === 'latest') qb.orderBy('d.createTime', 'DESC');
     else qb.orderBy('d.createTime', 'DESC');
     const [list, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
-    return { list, total };
+    const safeList = list.map((d) => {
+      const { user, ...rest } = d as any;
+      let safeUser: any = undefined;
+      if (user) {
+        const decryptedPhone =
+          user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+        safeUser = {
+          id: user.id,
+          nickname: user.nickname,
+          avatar: user.avatar,
+          role: user.role,
+          realNameStatus: user.realNameStatus,
+          phone: decryptedPhone,
+        };
+      }
+      return { ...rest, user: safeUser } as Order & { user?: any };
+    });
+    return { list: safeList, total };
   }
 
-  findOne(id: string): Promise<Order | null> {
-    return this.ordersRepository.findOne({ where: { id }, relations: ['user'] });
+  async findOne(id: string): Promise<Order | null> {
+    const order = await this.ordersRepository.findOne({ where: { id }, relations: ['user'] });
+    if (!order) return null;
+    const { user, ...rest } = order as any;
+    let safeUser: any = undefined;
+    if (user) {
+      const decryptedPhone =
+        user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+      safeUser = {
+        id: user.id,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        role: user.role,
+        realNameStatus: user.realNameStatus,
+        phone: decryptedPhone,
+      };
+    }
+    return { ...rest, user: safeUser } as Order & { user?: any };
   }
 
   async create(dto: CreateDemandDto): Promise<Order> {
+    await this.usersService.ensureUserCanPublish(dto.userId);
+    const images = normalizeFileItems(dto.images);
+    const video = normalizeFileItem(dto.video);
     const payload = {
       userId: dto.userId,
       type: dto.type,
@@ -65,8 +119,8 @@ export class OrdersService {
       budgetMin: dto.budgetMin,
       budgetMax: dto.budgetMax,
       description: dto.description,
-      images: dto.images ?? [],
-      video: dto.video,
+      images,
+      video,
       isUrgent: dto.isUrgent ?? 'N',
       status: '1',
     };
@@ -78,6 +132,8 @@ export class OrdersService {
     const payload: Record<string, unknown> = { ...dto };
     if (dto.startDate) payload.startDate = new Date(dto.startDate);
     if (dto.endDate) payload.endDate = new Date(dto.endDate);
+    if (dto.images !== undefined) payload.images = normalizeFileItems(dto.images as (string | FileItemDto)[]);
+    if (dto.video !== undefined) payload.video = normalizeFileItem(dto.video as string | FileItemDto);
     await this.ordersRepository.update(id, payload as Partial<Order>);
     return this.ordersRepository.findOne({ where: { id }, relations: ['user'] });
   }

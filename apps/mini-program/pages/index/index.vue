@@ -48,7 +48,7 @@
       </swiper>
     </view>
 
-    <!-- 快捷分类入口：一行 5 个圆形图标 -->
+    <!-- 快捷入口：uni-icons -->
     <view class="quick-section card">
       <view class="quick-grid">
         <view
@@ -59,7 +59,7 @@
           hover-class="quick-hover"
         >
           <view class="quick-icon-wrap">
-            <image :src="item.image" mode="aspectFit" class="quick-icon" />
+            <uni-icons :type="item.icon" :color="item.color || '#4AB1F7'" size="26" />
           </view>
           <text class="quick-text">{{ item.text }}</text>
         </view>
@@ -90,7 +90,7 @@
         >
           <view class="product-img-wrap">
             <image
-              :src="(item.images && item.images[0]) || '/static/default_machine.png'"
+              :src="getFileViewUrl(item.images && item.images[0]) || '/static/default_machine.png'"
               mode="aspectFill"
               class="product-img"
               lazy-load
@@ -139,7 +139,7 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import { useDictOne } from '@/hooks/useDict';
 import ActivityCard from '@/components/ActivityCard.vue';
 
@@ -160,11 +160,12 @@ export default {
         'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&q=60',
       ],
       quickMenus: [
-        { text: '发布设备', image: '/static/swiper/excavator.svg', path: '/pages/machine/add' },
-        { text: '发布需求', image: '/static/swiper/earthwork.svg', path: '/pages/demand/add' },
-        { text: '我的合同', image: '/static/swiper/transport.svg', path: '/pages/contract/list' },
-        { text: '记账本', image: '/static/swiper/crane.svg', path: '/pages/record/list' },
-        { text: '我的收藏', image: '/static/swiper/bucket.svg', path: '/pages/user/fav' },
+        { text: '视频', icon: 'videocam', path: '/pages/video/index' },
+        { text: '发布设备', icon: 'plus', path: '/pages/machine/add' },
+        { text: '发布需求', icon: 'compose', path: '/pages/demand/add' },
+        { text: '我的合同', icon: 'list', path: '/pages/contract/list' },
+        { text: '记账本', icon: 'paperplane', path: '/pages/record/list' },
+        { text: '我的收藏', icon: 'star', path: '/pages/user/fav' },
       ],
       recommendMachines: [],
       latestDemands: [],
@@ -182,6 +183,7 @@ export default {
     );
   },
   methods: {
+    getFileViewUrl,
     fetchRecommend() {
       return apiService
         .getMachines({ sort: 'latest', page: 1, pageSize: 6 })
@@ -342,34 +344,36 @@ export default {
 /* 快捷入口 */
 .quick-section {
   margin: 0 16px 16px;
+  padding: 20px 12px;
 }
 .quick-grid {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 24px 8px;
 }
 .quick-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 20%;
+  width: calc((100% - 40px) / 6);
+  min-width: 0;
 }
 .quick-icon-wrap {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #e8f4fd 0%, #d6ebfa 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
-}
-.quick-icon {
-  width: 28px;
-  height: 28px;
+  margin-bottom: 8px;
 }
 .quick-text {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
+  text-align: center;
+  line-height: 1.3;
 }
 .quick-hover {
   opacity: 0.85;

@@ -3,12 +3,19 @@
     <view v-if="loading" class="loading-wrap"><uni-load-more status="loading" /></view>
     <template v-else-if="machine.id">
       <view class="card banner-card">
-        <swiper class="banner" indicator-dots autoplay circular indicator-active-color="#4AB1F7">
-          <swiper-item v-for="(item, index) in (machine.images || [])" :key="index">
-            <image :src="item" mode="aspectFill" class="banner-img" @click="previewImage(index)" />
-          </swiper-item>
-          <swiper-item v-if="!(machine.images && machine.images.length)">
-            <image src="/static/default_machine.png" mode="aspectFill" class="banner-img" />
+        <swiper class="banner" indicator-dots circular indicator-active-color="#4AB1F7">
+          <swiper-item v-for="(m, idx) in mediaItems(machine)" :key="idx">
+            <image
+              v-if="m.type === 'image'"
+              :src="getFileViewUrl(m.value) || '/static/default_machine.png'"
+              mode="aspectFill"
+              class="banner-img"
+              @click="previewImage(idx)"
+            />
+            <view v-else class="banner-video-wrap" @click.stop>
+              <video class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
+              <view class="video-badge">视频</view>
+            </view>
           </swiper-item>
         </swiper>
       </view>
@@ -57,7 +64,7 @@
 </template>
 
 <script>
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
 
@@ -78,6 +85,15 @@ export default {
     } else this.loading = false;
   },
   methods: {
+    getFileViewUrl,
+    mediaItems(item) {
+      const list = [];
+      if (item && item.video) list.push({ type: 'video', value: item.video });
+      const imgs = Array.isArray(item && item.images) ? item.images : [];
+      imgs.forEach((img) => list.push({ type: 'image', value: img }));
+      if (list.length === 0) list.push({ type: 'image', value: null });
+      return list;
+    },
     fetchDetail(id) {
       this.loading = true;
       apiService
@@ -108,8 +124,9 @@ export default {
       return o ? o.text : v || '';
     },
     previewImage(index) {
-      const imgs = this.machine.images || [];
-      if (imgs.length) uni.previewImage({ urls: imgs, current: index });
+      const items = this.mediaItems(this.machine).filter((m) => m.type === 'image');
+      const urls = items.map((m) => this.getFileViewUrl(m.value)).filter(Boolean);
+      if (urls.length) uni.previewImage({ urls, current: urls[index] || urls[0] });
     },
     toggleFav() {
       const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
@@ -148,6 +165,8 @@ export default {
 .banner-card { padding: 0; }
 .banner { height: 240px; border-radius: 16px; }
 .banner-img { width: 100%; height: 100%; }
+.banner-video-wrap { position: relative; width: 100%; height: 100%; }
+.video-badge { position: absolute; top: 8px; right: 8px; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,0.5); color: #fff; }
 .info-card {
   .price-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .price-box { color: #FF4D4F; display: flex; align-items: baseline; }

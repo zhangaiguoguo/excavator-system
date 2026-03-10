@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <view class="card form-card">
-    <uni-forms ref="formRef" :modelValue="form" :rules="rules">
+    <uni-forms ref="formRef" label-position="right" label-width="80px" :modelValue="form" :rules="rules">
       <uni-forms-item label="需求类型" name="type" required>
         <uni-data-select v-model="form.type" :localdata="typeOptions" placeholder="请选择"></uni-data-select>
       </uni-forms-item>
@@ -13,22 +13,14 @@
         <LocationPicker v-model="locationValue" />
       </uni-forms-item>
       <uni-forms-item label="需求时段" required>
-        <view class="date-row">
-          <uni-datetime-picker
-            type="date"
-            v-model="form.startDate"
-            :clear-icon="false"
-            placeholder="开始日期"
-          />
-          <text class="to">至</text>
-          <uni-datetime-picker
-            type="date"
-            v-model="form.endDate"
-            :start="form.startDate || ''"
-            :clear-icon="false"
-            placeholder="结束日期"
-          />
-        </view>
+        <uni-datetime-picker
+          type="daterange"
+          v-model="demandDateRange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          :clear-icon="false"
+        />
       </uni-forms-item>
       <view class="form-row">
         <uni-forms-item label="预算下限(元)" name="budgetMin" class="flex1">
@@ -59,6 +51,9 @@
 <script>
 import apiService from '@/api/api';
 import { useDictOne } from '@/hooks/useDict';
+import { setListRefreshHint } from '@/common/util/listRefresh.js';
+import { checkUserCanPublish } from '@/common/util/publishCheck.js';
+import appStore from '@/store/app';
 import LocationPicker from '@/components/LocationPicker.vue';
 import UploadImageList from '@/components/UploadImageList.vue';
 import UploadVideo from '@/components/UploadVideo.vue';
@@ -67,6 +62,7 @@ export default {
   components: { LocationPicker, UploadImageList, UploadVideo },
   data() {
     return {
+      demandDateRange: [],
       locationValue: { province: '', city: '', district: '', address: '' },
       form: {
         userId: '',
@@ -103,7 +99,20 @@ export default {
       }
     };
   },
+  computed: {
+    userInfo() {
+      return (appStore().state && appStore().state.userInfo) || {};
+    },
+  },
   watch: {
+    demandDateRange: {
+      handler(arr) {
+        const a = Array.isArray(arr) ? arr : [];
+        this.form.startDate = a[0] || '';
+        this.form.endDate = a[1] || '';
+      },
+      deep: true,
+    },
     locationValue: {
       deep: true,
       handler(v) {
@@ -117,10 +126,16 @@ export default {
     },
   },
   onLoad() {
-    this.form.userId = uni.getStorageSync('userId') || '';
+    const store = appStore();
+    this.form.userId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId') || '';
   },
   methods: {
     submit() {
+      const publishCheck = checkUserCanPublish(this.userInfo);
+      if (!publishCheck.can) {
+        this.$tip.alert(publishCheck.message);
+        return;
+      }
       this.$refs.formRef.validate().then(() => {
         if (!this.form.userId) {
           this.$tip.alert('请先登录');
@@ -156,6 +171,8 @@ export default {
         apiService.createDemand(payload).then(() => {
           this.$tip.loaded();
           this.$tip.success('发布成功');
+          setListRefreshHint('demand');
+          setListRefreshHint('publish');
           setTimeout(() => uni.navigateBack(), 1500);
         }).catch(err => {
           this.$tip.loaded();

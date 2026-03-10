@@ -1,5 +1,6 @@
--- 初始化数据库
-CREATE DATABASE IF NOT EXISTS excavator;
+-- 初始化数据库（先删库再建库，保证表结构为当前脚本定义）
+DROP DATABASE IF EXISTS excavator;
+CREATE DATABASE excavator;
 USE excavator;
 
 -- 字典类型表 (RuoYi)
@@ -57,7 +58,8 @@ INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark) VALU
 INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by) VALUES 
 (1, '元/小时', '1', 'work_hours_unit', '0', 'admin'),
 (2, '元/天', '2', 'work_hours_unit', '0', 'admin'),
-(3, '元/月', '3', 'work_hours_unit', '0', 'admin');
+(3, '元/月', '3', 'work_hours_unit', '0', 'admin'),
+(4, '元/台班8小时', '4', 'work_hours_unit', '0', 'admin');
 
 -- 3. 机械状态 (machine_status)
 INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark) VALUES 
@@ -168,7 +170,7 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status,
 (2, '女', '2', 'sys_user_sex', '0', 'admin');
 
 -- 用户表
-CREATE TABLE IF NOT EXISTS t_user (
+CREATE TABLE t_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     wx_openid VARCHAR(64) NOT NULL UNIQUE COMMENT '微信OpenID',
     union_id VARCHAR(64) COMMENT '微信UnionID',
@@ -184,12 +186,14 @@ CREATE TABLE IF NOT EXISTS t_user (
     credit_code VARCHAR(32) COMMENT '统一社会信用代码',
     status CHAR(1) DEFAULT '0' COMMENT '状态 (dict: sys_normal_disable)',
     last_login_at DATETIME COMMENT '最后登录时间',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户信息表';
 
 -- 机械设备表 PRD 4.2.1 出租方-设备发布
-CREATE TABLE IF NOT EXISTS t_machine (
+CREATE TABLE t_machine (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '所属机主ID',
     type VARCHAR(64) NOT NULL COMMENT '设备类型 (dict: machine_type) 挖斗/炮头/挖掘机整机/其他',
@@ -199,8 +203,8 @@ CREATE TABLE IF NOT EXISTS t_machine (
     condition_type VARCHAR(64) NOT NULL COMMENT '新旧程度 (dict: machine_condition)',
     rent_amount DECIMAL(10,2) NOT NULL COMMENT '租赁价格',
     rent_unit VARCHAR(64) NOT NULL COMMENT '租金单位 (dict: work_hours_unit) 元/天、元/小时、元/月',
-    rent_start_date DATE NOT NULL COMMENT '可租赁开始日期',
-    rent_end_date DATE NOT NULL COMMENT '可租赁结束日期',
+    rent_start_date DATE default null COMMENT '可租赁开始日期',
+    rent_end_date DATE default null COMMENT '可租赁结束日期',
     is_long_term CHAR(1) DEFAULT 'N' COMMENT '是否长期可租 (dict: sys_yes_no)',
     province VARCHAR(50) NOT NULL COMMENT '省份',
     city VARCHAR(50) NOT NULL COMMENT '城市',
@@ -217,13 +221,15 @@ CREATE TABLE IF NOT EXISTS t_machine (
     top_expire_at DATETIME COMMENT '置顶过期时间',
     view_count INT DEFAULT 0 COMMENT '浏览次数',
     contact_count INT DEFAULT 0 COMMENT '联系次数',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='机械设备信息表';
 
 -- 需求表 需求方发布：求租设备/招聘机手 PRD 4.3
-CREATE TABLE IF NOT EXISTS t_demand (
+CREATE TABLE t_demand (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '发布者(需求方)ID',
     type VARCHAR(64) NOT NULL COMMENT '需求类型 (dict: demand_type) 1求租设备 2招聘机手',
@@ -243,13 +249,15 @@ CREATE TABLE IF NOT EXISTS t_demand (
     status VARCHAR(64) DEFAULT '1' COMMENT '状态 (dict: demand_status)',
     view_count INT DEFAULT 0 COMMENT '浏览次数',
     contact_count INT DEFAULT 0 COMMENT '联系次数',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='需求信息表';
 
 -- 揽活信息表 PRD 4.2.2 揽活方-揽活发布
-CREATE TABLE IF NOT EXISTS t_job (
+CREATE TABLE t_job (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '揽活方用户ID',
     experience VARCHAR(64) NOT NULL COMMENT '从业经验 (dict: job_experience)',
@@ -270,24 +278,27 @@ CREATE TABLE IF NOT EXISTS t_job (
     status VARCHAR(64) DEFAULT '1' COMMENT '状态 1上架 0下架',
     view_count INT DEFAULT 0 COMMENT '浏览次数',
     contact_count INT DEFAULT 0 COMMENT '联系次数',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='揽活信息表';
 
 -- 用户收藏表 (设备/需求/揽活)
-CREATE TABLE IF NOT EXISTS t_user_favorite (
+CREATE TABLE t_user_favorite (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     ref_type VARCHAR(20) NOT NULL COMMENT '类型: machine-设备 demand-需求 job-揽活',
     ref_id BIGINT NOT NULL COMMENT '关联ID',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     UNIQUE KEY uk_user_ref (user_id, ref_type, ref_id),
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户收藏表';
 
 -- 合同表
-CREATE TABLE IF NOT EXISTS t_contract (
+CREATE TABLE t_contract (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     contract_no VARCHAR(32) NOT NULL UNIQUE COMMENT '合同编号',
     machine_id BIGINT COMMENT '关联设备ID',
@@ -301,14 +312,16 @@ CREATE TABLE IF NOT EXISTS t_contract (
     lessee_sign_status CHAR(1) DEFAULT '0' COMMENT '承租方签署状态 (dict: sys_yes_no)',
     sign_expire_at DATETIME COMMENT '签署截止时间',
     status VARCHAR(64) DEFAULT '0' COMMENT '合同状态 (dict: contract_status)',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (lessor_id) REFERENCES t_user(id),
     FOREIGN KEY (lessee_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='电子合同表';
 
 -- 财务记账表 (原 records)
-CREATE TABLE IF NOT EXISTS t_finance_record (
+CREATE TABLE t_finance_record (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     contract_id BIGINT COMMENT '关联合同ID',
@@ -319,7 +332,9 @@ CREATE TABLE IF NOT EXISTS t_finance_record (
     record_date DATE NOT NULL COMMENT '记账日期',
     remark VARCHAR(200) COMMENT '备注说明',
     voucher_images JSON COMMENT '凭证图片JSON数组',
+    create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (user_id) REFERENCES t_user(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财务记账记录表';

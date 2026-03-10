@@ -45,6 +45,10 @@ export default {
   onShow() {
     this.fetchRecords();
   },
+  onPullDownRefresh() {
+    this.fetchRecords();
+    setTimeout(() => uni.stopPullDownRefresh(), 400);
+  },
   methods: {
     fetchRecords() {
       // Mock data

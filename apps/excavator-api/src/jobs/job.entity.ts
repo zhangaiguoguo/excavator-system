@@ -67,8 +67,14 @@ export class Job {
   @Column({ name: 'contact_count', default: 0 })
   contactCount: number;
 
+  @Column({ name: 'create_by', length: 64, default: '' })
+  createBy: string;
+
   @CreateDateColumn({ name: 'create_time' })
   createTime: Date;
+
+  @Column({ name: 'update_by', length: 64, default: '' })
+  updateBy: string;
 
   @UpdateDateColumn({ name: 'update_time', nullable: true })
   updateTime: Date;
