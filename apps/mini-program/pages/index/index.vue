@@ -150,12 +150,6 @@
 				quickMenus: [],
 				recommendMachines: [],
 				latestDemands: [],
-				homeLocation: {
-					latitude: null,
-					longitude: null
-				},
-				loadingRecommend: false,
-				loadingDemands: false,
 				work_hours_unit: useDictOne('work_hours_unit'),
 				machine_condition: useDictOne('machine_condition'),
 				machine_type: useDictOne('machine_type'),
@@ -163,7 +157,8 @@
 			};
 		},
 		onLoad() {
-			this.initHomeData();
+			this.fetchRecommend();
+			this.fetchDemands();
 		},
 		onPullDownRefresh() {
 			Promise.all([this.fetchRecommend(), this.fetchDemands()]).finally(() =>
@@ -173,99 +168,36 @@
 		methods: {
 			transformDictValue,
 			getFileViewUrl,
-			initHomeData() {
-				try {
-					const cache = uni.getStorageSync('HOME_INDEX_CACHE');
-					const now = Date.now();
-					if (cache && cache.ts && now - cache.ts < 10 * 60 * 1000) {
-						this.recommendMachines = cache.recommendMachines || [];
-						this.latestDemands = cache.latestDemands || [];
-					}
-				} catch (e) {
-					// ignore cache error
-				}
-				// 初始化定位后再刷新猜你喜欢
-				this.initHomeLocation().then(() => {
-					this.fetchRecommend();
-				}).catch(() => {
-					this.fetchRecommend();
-				});
-				this.fetchDemands();
-			},
-			initHomeLocation() {
-				return new Promise((resolve) => {
-					uni.getLocation({
-						type: 'gcj02',
-						success: (res) => {
-							this.homeLocation = {
-								latitude: res.latitude,
-								longitude: res.longitude
-							};
-							resolve(true);
-						},
-						fail: () => {
-							this.homeLocation = {
-								latitude: null,
-								longitude: null
-							};
-							resolve(false);
-						}
-					});
-				});
-			},
-			saveHomeCache() {
-				try {
-					uni.setStorage({
-						key: 'HOME_INDEX_CACHE',
-						data: {
-							ts: Date.now(),
-							recommendMachines: this.recommendMachines,
-							latestDemands: this.latestDemands,
-						},
-					});
-				} catch (e) {
-					// ignore
-				}
-			},
 			fetchRecommend() {
-				this.loadingRecommend = true;
 				return apiService
-					.getHomeRecommendations({
-						limit: 6,
-						latitude: this.homeLocation.latitude || undefined,
-						longitude: this.homeLocation.longitude || undefined
+					.getMachines({
+						sort: 'latest',
+						page: 1,
+						pageSize: 6
 					})
 					.then((res) => {
 						const data = res?.data ?? res;
 						const list = data?.list ?? (Array.isArray(data) ? data : []);
 						this.recommendMachines = list;
-						this.saveHomeCache();
 					})
 					.catch(() => {
 						this.recommendMachines = [];
-					})
-					.finally(() => {
-						this.loadingRecommend = false;
 					});
 			},
 			fetchDemands() {
-				this.loadingDemands = true;
 				return apiService
-					.getHomeLatestDemands({
+					.getDemands({
+						sort: 'latest',
 						page: 1,
-						pageSize: 10
+						pageSize: 4
 					})
 					.then((res) => {
 						const data = res?.data ?? res;
 						const list = data?.list ?? (Array.isArray(data) ? data : []);
 						this.latestDemands = list;
-						this.saveHomeCache();
 					})
 					.catch(() => {
 						this.latestDemands = [];
-					})
-					.finally(() => {
-						this.loadingDemands = false;
 					});
 			},
 			onCategory(item) {
@@ -504,11 +436,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		margin: 0 -6px;
-	}
-
-	/* 猜你喜欢骨架屏 */
-	.product-grid.skeleton {
-		opacity: 0.6;
 	}
 
 	.product-card {
