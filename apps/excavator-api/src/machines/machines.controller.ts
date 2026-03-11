@@ -52,7 +52,10 @@ export class MachinesController {
   }
 
   @Post()
-  create(@Request() req: any, @Body() createMachineDto: CreateMachineDto): Promise<Machine> {
+  create(
+    @Request() req: any,
+    @Body() createMachineDto: CreateMachineDto,
+  ): Promise<Machine> {
     const userId = getRequiredUserId(req);
     return this.machinesService.create({ ...createMachineDto, userId });
   }

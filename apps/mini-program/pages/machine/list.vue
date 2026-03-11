@@ -3,7 +3,7 @@
 		<!-- 搜索与筛选栏 -->
 		<view class="header">
 			<view class="search-row">
-				<uni-search-bar v-model="keyword" placeholder="搜索品牌/型号/描述" bgColor="#f0f2f5" radius="20" class="w-full"
+				<uni-search-bar v-model="keyword" placeholder="搜索型号/描述" bgColor="#f0f2f5" radius="20" class="w-full"
 					@confirm="onSearch" @clear="onSearch" />
 			</view>
 			<view class="filter-row">
@@ -97,15 +97,18 @@
 				</view>
 				<view class="card-body">
 					<view class="card-title-row">
-						<text
-							class="card-title">{{ transformDictValue(item.type,dictOptions.machine_type) }} {{ item.model }} {{item.brand??""}}</text>
+						<view class="card-title">
+							<text>{{ transformDictValue(item.type,dictOptions.machine_type) }} {{ item.model }}
+								{{item.brand??""}}
+							</text>
+							<text class="dot">·</text>
+							<text class="condition-type">{{ conditionLabel(item.conditionType) }}</text>
+						</view>
 						<uni-tag v-if="item.isTop === 'Y'" text="置顶" type="error" size="mini" circle />
 					</view>
 					<view class="card-meta mt-2">
 						<uni-icons type="location-filled" size="14" color="#999" />
-						<text>{{ item.province }} {{ item.city }}</text>
-						<text class="dot">·</text>
-						<text>{{ conditionLabel(item.conditionType) }}</text>
+						<text>{{ item.province }} {{ item.city ||""}} {{ item.district ||""}}</text>
 					</view>
 					<view class="card-footer">
 						<view class="price">
@@ -544,7 +547,6 @@
 		flex: 1;
 		height: 40px;
 		line-height: 40px;
-		border-radius: 10px;
 		background: #FF8F00;
 		color: #fff;
 		font-size: 14px;
@@ -602,7 +604,6 @@
 			flex: 1;
 			height: 44px;
 			line-height: 44px;
-			border-radius: 22px;
 			font-size: 15px;
 			border: none;
 		}
@@ -687,6 +688,15 @@
 		font-weight: 600;
 		color: #1a1a1a;
 		line-height: 1.3;
+
+		.dot {
+			margin: 0 2px;
+		}
+		.condition-type{
+			font-size: 12px;
+			color: #999;
+			font-weight: 400;
+		}
 	}
 
 	.card-meta {
@@ -695,10 +705,6 @@
 		gap: 4px;
 		font-size: 12px;
 		color: #999;
-
-		.dot {
-			margin: 0 2px;
-		}
 	}
 
 	.card-footer {
@@ -735,7 +741,6 @@
 		font-size: 13px;
 		background: linear-gradient(90deg, #FFA500, #FF8F00);
 		color: #fff;
-		border-radius: 16px;
 		border: none;
 	}
 

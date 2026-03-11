@@ -340,6 +340,5 @@
 	.submit-btn {
 		margin-top: 24px;
 		width: 100%;
-		border-radius: 24px;
 	}
 </style>

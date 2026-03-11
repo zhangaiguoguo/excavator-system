@@ -74,11 +74,15 @@ export class MachinesService {
       qb.andWhere('m.rent_amount >= :priceMin', { priceMin: filters.priceMin });
     if (filters?.priceMax)
       qb.andWhere('m.rent_amount <= :priceMax', { priceMax: filters.priceMax });
+    /* 地区按省、市筛选；有区时按区排序：同区优先，区不同往后排 */
     if (filters?.province)
       qb.andWhere('m.province = :province', { province: filters.province });
     if (filters?.city) qb.andWhere('m.city = :city', { city: filters.city });
-    if (filters?.district)
-      qb.andWhere('m.district = :district', { district: filters.district });
+    if (filters?.district) {
+      qb.addSelect('(m.district = :districtOrder)', 'districtMatch')
+        .setParameter('districtOrder', filters.district)
+        .addOrderBy('districtMatch', 'DESC');
+    }
     if (filters?.userId)
       qb.andWhere('m.user_id = :userId', { userId: filters.userId });
     if (filters?.keyword) {
@@ -89,9 +93,9 @@ export class MachinesService {
         },
       );
     }
-    if (filters?.sort === 'price_asc') qb.orderBy('m.rentAmount', 'ASC');
-    else if (filters?.sort === 'price_desc') qb.orderBy('m.rentAmount', 'DESC');
-    else if (filters?.sort === 'latest') qb.orderBy('m.createTime', 'DESC');
+    if (filters?.sort === 'price_asc') qb.addOrderBy('m.rentAmount', 'ASC');
+    else if (filters?.sort === 'price_desc') qb.addOrderBy('m.rentAmount', 'DESC');
+    else if (filters?.sort === 'latest') qb.addOrderBy('m.createTime', 'DESC');
     else if (
       filters?.sort === 'distance' &&
       filters?.latitude != null &&
@@ -104,9 +108,9 @@ export class MachinesService {
         'distance',
       )
         .setParameter('lat', lat)
-        .setParameter('lng', lng)
-        .orderBy('distance', 'ASC');
-    } else qb.orderBy('m.createTime', 'DESC');
+        .setParameter('lng', lng);
+      qb.addOrderBy('distance', 'ASC');
+    } else qb.addOrderBy('m.createTime', 'DESC');
     const [list, total] = await qb
       .skip((page - 1) * pageSize)
       .take(pageSize)

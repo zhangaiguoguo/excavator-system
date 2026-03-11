@@ -56,18 +56,23 @@ export class OrdersService {
       if (types.length <= 1) qb.andWhere('d.type = :type', { type: types[0] });
       else qb.andWhere('d.type IN (:...types)', { types });
     }
+    /* 地区按省、市筛选；有区时按区排序：同区优先，区不同往后排 */
     if (filters?.province) qb.andWhere('d.province = :province', { province: filters.province });
     if (filters?.city) qb.andWhere('d.city = :city', { city: filters.city });
-    if (filters?.district) qb.andWhere('d.district = :district', { district: filters.district });
+    if (filters?.district) {
+      qb.addSelect('(d.district = :districtOrder)', 'districtMatch')
+        .setParameter('districtOrder', filters.district)
+        .addOrderBy('districtMatch', 'DESC');
+    }
     if (filters?.budgetMin) qb.andWhere('d.budget_max >= :budgetMin', { budgetMin: filters.budgetMin });
     if (filters?.budgetMax) qb.andWhere('d.budget_min <= :budgetMax', { budgetMax: filters.budgetMax });
     if (filters?.userId) qb.andWhere('d.user_id = :userId', { userId: filters.userId });
     if (filters?.keyword) {
       qb.andWhere('(d.description LIKE :kw OR d.address LIKE :kw)', { kw: '%' + filters.keyword + '%' });
     }
-    if (filters?.sort === 'price_asc') qb.orderBy('d.budgetMin', 'ASC');
-    else if (filters?.sort === 'latest') qb.orderBy('d.createTime', 'DESC');
-    else qb.orderBy('d.createTime', 'DESC');
+    if (filters?.sort === 'price_asc') qb.addOrderBy('d.budgetMin', 'ASC');
+    else if (filters?.sort === 'latest') qb.addOrderBy('d.createTime', 'DESC');
+    else qb.addOrderBy('d.createTime', 'DESC');
     const [list, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
     const safeList = list.map((d) => {
       const { user, ...rest } = d as any;

@@ -88,9 +88,13 @@
 		font-weight: 600;
 	}
 
+	/* 使用 uni-app 默认按钮样式，不自定义 border-radius 避免边框被裁切 */
 	button[type=primary] {
 		background-color: #FFB800 !important;
 		color: #333 !important;
+	}
+	button::after {
+		border: none;
 	}
 
 	/* 卡片通用样式 - 设计规范 */

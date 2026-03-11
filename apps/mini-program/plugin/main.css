@@ -3,6 +3,10 @@ scroll-view {
 	box-sizing: border-box;
 }
 
+.m-0{
+	margin: 0;
+}
+
 .ml-2 {
 	margin-left: 12rpx;
 }

@@ -8,7 +8,7 @@
       </view>
       <view v-else class="add-video" @click="chooseVideo">
         <text>选择视频</text>
-        <text class="add-tip">{{ tip || '选填，≤30秒' }}</text>
+        <text class="add-tip">{{ tip || '选填，≤60秒' }}</text>
       </view>
     </template>
     <!-- 多个视频 max>1 -->
@@ -19,7 +19,7 @@
       </view>
       <view v-if="innerList.length < max" class="add-video" @click="chooseVideo">
         <text>添加视频</text>
-        <text class="add-tip">{{ tip || `最多${max}个，≤30秒` }}</text>
+        <text class="add-tip">{{ tip || `最多${max}个，≤60秒` }}</text>
       </view>
       <text v-if="tip && innerList.length > 0" class="upload-tip">{{ tip }}</text>
     </template>
@@ -101,7 +101,7 @@ export default {
       }
       uni.chooseVideo({
         sourceType: ['album', 'camera'],
-        maxDuration: 30,
+        maxDuration: 60,
         success: async (res) => {
           this.$tip && this.$tip.loading('上传中...');
           try {

@@ -132,7 +132,7 @@ http.interceptor.response(
 				// 注意：这里修改了返回值，前端调用 api.then(res => ...) 拿到的 res 就是 data.data
 				return data;
 			}
-			return response;
+			return Promise.reject(response);
 		},
 		(error) => {
 			// HTTP 状态码非 2xx 的情况 (如网络错误，或者后端未捕获的异常)

@@ -4,7 +4,7 @@
       <view class="search-row">
         <uni-search-bar
           v-model="keyword"
-          placeholder="搜索需求描述/地址"
+          placeholder="搜索需求描述"
           bgColor="#f0f2f5"
           radius="20"
           @confirm="onSearch"
@@ -448,7 +448,6 @@ export default {
     flex: 1;
     height: 44px;
     line-height: 44px;
-    border-radius: 22px;
     font-size: 15px;
     border: none;
   }
@@ -545,7 +544,6 @@ export default {
   flex: 1;
   height: 40px;
   line-height: 40px;
-  border-radius: 10px;
   background: #007aff;
   color: #fff;
   font-size: 14px;

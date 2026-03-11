@@ -199,7 +199,7 @@ export default {
   box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
-.footer-bar .btn { flex: 1; border-radius: 24px; }
+.footer-bar .btn { flex: 1; }
 .safe-bottom { height: env(safe-area-inset-bottom); }
 .empty { text-align: center; padding: 60px 20px; color: #999; }
 </style>

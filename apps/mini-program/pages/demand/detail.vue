@@ -217,8 +217,8 @@ export default {
   padding-bottom: calc(12px + constant(safe-area-inset-bottom));
   padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
-.btn-contact { flex: 1; border-radius: 24px; background: #F1F2F4; color: #333; border: none; }
-.btn-order { flex: 1; border-radius: 24px; border: none; }
+.btn-contact { flex: 1; background: #F1F2F4; color: #333; border: none; }
+.btn-order { flex: 1; border: none; }
 .safe-bottom { height: env(safe-area-inset-bottom); }
 .empty { text-align: center; padding: 60px 20px; color: #999; }
 </style>
