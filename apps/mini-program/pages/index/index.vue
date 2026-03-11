@@ -136,12 +136,16 @@
 						label: '首页'
 					},
 					{
-						key: 'publish',
+						key: '/pages/user/publish',
 						label: '我的发布'
 					},
 					{
-						key: 'fav',
+						key: '/pages/user/fav',
 						label: '收藏'
+					},
+					{
+						key: '/pages/video/index',
+						label: '视频'
 					},
 				],
 				banners: [
@@ -202,17 +206,8 @@
 			},
 			onCategory(item) {
 				if (item.key === 'home') return;
-				if (item.key === 'machine') uni.switchTab({
-					url: '/pages/machine/list'
-				});
-				else if (item.key === 'demand') uni.switchTab({
-					url: '/pages/demand/list'
-				});
-				else if (item.key === 'publish') uni.navigateTo({
-					url: '/pages/user/publish'
-				});
-				else if (item.key === 'fav') uni.navigateTo({
-					url: '/pages/user/fav'
+				uni.navigateTo({
+					url: item.key
 				});
 			},
 			handleMenuClick(item) {

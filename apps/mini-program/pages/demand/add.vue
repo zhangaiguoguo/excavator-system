@@ -14,8 +14,15 @@
 					<LocationPicker v-model="locationValue" />
 				</uni-forms-item>
 				<uni-forms-item label="需求时段" required>
-					<uni-datetime-picker type="daterange" v-model="demandDateRange" range-separator="至"
-						start-placeholder="开始日期" end-placeholder="结束日期" :clear-icon="false" />
+					<uni-datetime-picker
+						type="daterange"
+						v-model="demandDateRange"
+						range-separator="至"
+						start-placeholder="开始日期"
+						end-placeholder="结束日期"
+						:clear-icon="false"
+						:disabled="isLongTerm === Constants.YES"
+					/>
 					<view class="checkbox-row">
 						<uni-data-checkbox v-model="isLongTerm"
 							:localdata="[{ text: '时间不限', value: Constants.YES }]"
@@ -180,8 +187,17 @@
 			demandDateRange: {
 				handler(arr) {
 					const a = Array.isArray(arr) ? arr : [];
-					this.form.startDate = a[0] || '';
-					this.form.endDate = a[1] || '';
+					const toDateStr = (v) => {
+						if (!v) return '';
+						const d = new Date(v);
+						if (Number.isNaN(d.getTime())) return '';
+						const y = d.getFullYear();
+						const m = String(d.getMonth() + 1).padStart(2, '0');
+						const day = String(d.getDate()).padStart(2, '0');
+						return `${y}-${m}-${day}`;
+					};
+					this.form.startDate = toDateStr(a[0]);
+					this.form.endDate = toDateStr(a[1]);
 				},
 				deep: true,
 			},
@@ -210,16 +226,20 @@
 		methods: {
 			onLongTermChange(val) {
 				if (val === Constants.YES) {
-					this.demandDateRange = [];
 					const today = new Date();
 					const y = today.getFullYear();
 					const m = String(today.getMonth() + 1).padStart(2, '0');
 					const d = String(today.getDate()).padStart(2, '0');
-					this.form.startDate = `${y}-${m}-${d}`;
-					this.form.endDate = '2099-12-31';
+					const start = `${y}-${m}-${d}`;
+					const end = '2099-12-31';
+					// 同时更新表单字段和日期选择器绑定值，避免 watcher 覆盖
+					this.form.startDate = start;
+					this.form.endDate = end;
+					this.demandDateRange = [start, end];
 				} else {
 					this.form.startDate = '';
 					this.form.endDate = '';
+					this.demandDateRange = [];
 				}
 			},
 			loadDetail(id) {

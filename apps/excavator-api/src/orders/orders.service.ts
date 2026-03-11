@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
@@ -19,6 +19,17 @@ function normalizeFileItem(
 function normalizeFileItems(v: (string | FileItemDto)[] | undefined): Array<{ fileId: string; fileName: string }> {
   if (!Array.isArray(v)) return [];
   return v.map((it) => normalizeFileItem(it)).filter((x): x is { fileId: string; fileName: string } => x != null);
+}
+
+function parseDateOrThrow(value: string | undefined, fieldName: string): Date {
+  if (!value) {
+    throw new BadRequestException(`${fieldName} is required and must be in YYYY-MM-DD format`);
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    throw new BadRequestException(`${fieldName} is invalid, expected YYYY-MM-DD`);
+  }
+  return d;
 }
 
 @Injectable()
@@ -126,8 +137,8 @@ export class OrdersService {
       city: dto.city,
       district: dto.district,
       address: dto.address,
-      startDate: new Date(dto.startDate),
-      endDate: new Date(dto.endDate),
+      startDate: parseDateOrThrow(dto.startDate, 'startDate'),
+      endDate: parseDateOrThrow(dto.endDate, 'endDate'),
       budgetMin: dto.budgetMin,
       budgetMax: dto.budgetMax,
       description: dto.description,

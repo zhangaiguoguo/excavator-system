@@ -94,7 +94,8 @@ export class MachinesService {
       );
     }
     if (filters?.sort === 'price_asc') qb.addOrderBy('m.rentAmount', 'ASC');
-    else if (filters?.sort === 'price_desc') qb.addOrderBy('m.rentAmount', 'DESC');
+    else if (filters?.sort === 'price_desc')
+      qb.addOrderBy('m.rentAmount', 'DESC');
     else if (filters?.sort === 'latest') qb.addOrderBy('m.createTime', 'DESC');
     else if (
       filters?.sort === 'distance' &&
