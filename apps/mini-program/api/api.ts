@@ -153,6 +153,15 @@ class ApiServer {
 		return http.get('/favorites/check', { params: { userId, refType, refId } });
 	}
 
+	// 首页：猜你喜欢 & 最新需求
+	getHomeRecommendations(params?: { limit?: number; latitude?: number; longitude?: number }) {
+		return http.get('/home/recommendations', { params });
+	}
+
+	getHomeLatestDemands(params?: { page?: number; pageSize?: number }) {
+		return http.get('/home/latest-demands', { params });
+	}
+
 	// 通知（需登录，后端从 token 取 userId）
 	getNotifications(params ?: { page ?: number; pageSize ?: number; unreadOnly ?: boolean }) {
 		const p: Record<string, string | number> = {};

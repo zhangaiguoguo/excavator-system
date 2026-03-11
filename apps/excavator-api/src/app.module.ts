@@ -24,6 +24,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DictType } from './system/dict/entities/dict-type.entity';
 import { DictData } from './system/dict/entities/dict-data.entity';
+import { HomeModule } from './home/home.module';
 import { FileModule } from './file/file.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -63,6 +64,7 @@ import { GeoModule } from './geo/geo.module';
     DictModule,
     FileModule,
     GeoModule,
+    HomeModule,
   ],
   controllers: [AppController],
   providers: [
