@@ -42,6 +42,20 @@
             </view>
           </view>
         </view>
+        <view v-else-if="filterActive === 'machine'" class="popup-section">
+          <view class="section-label">设备类型</view>
+          <view class="dict-options">
+            <view
+              v-for="opt in dictOptions.machine_types"
+              :key="opt.value"
+              class="dict-option"
+              :class="{ on: (filter.machineTypes || []).includes(opt.value) }"
+              @click="toggleMachineType(opt.value)"
+            >
+              {{ opt.text }}
+            </view>
+          </view>
+        </view>
         <view v-else-if="filterActive === 'area'" class="popup-section">
           <view class="section-label">选择方式</view>
           <view class="area-actions">
@@ -161,22 +175,29 @@ export default {
       filterActive: '',
       filter: {
         type: [],
+        machineTypes: [],
         province: '',
         city: '',
         district: '',
         budgetMin: '',
         budgetMax: '',
         sort: 'distance',
+        onlyUrgent: false,
+        onlyHasVideo: false,
       },
       filterTabs: [
         { key: 'type', label: '类型' },
+        { key: 'machine', label: '设备' },
         { key: 'area', label: '地区' },
         { key: 'budget', label: '预算' },
         { key: 'sort', label: '排序' },
+        { key: 'more', label: '更多' },
       ],
       sortOptions: [
         { text: '最新发布', value: 'latest' },
         { text: '预算从低到高', value: 'price_asc' },
+        { text: '预算从高到低', value: 'price_desc' },
+        { text: '浏览量优先', value: 'view_desc' },
         { text: '距离优先', value: 'distance' },
       ],
       location: {
@@ -185,7 +206,7 @@ export default {
       },
       dictOptions: {
         demand_type: useDictOne('demand_type'),
-        machine_type: useDictOne('machine_type'),
+        machine_types: useDictOne('machine_types'),
       },
       areaText: '',
     };
@@ -205,7 +226,7 @@ export default {
   methods: {
     getFileViewUrl,
     machineTypesText(item) {
-      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.dictOptions.machine_type);
+      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.dictOptions.machine_types);
     },
     demandDateText(item) {
       return formatDemandDateRange(item.startDate, item.endDate, DemandDateUnlimited.START, DemandDateUnlimited.END);
@@ -216,6 +237,13 @@ export default {
       if (idx >= 0) arr.splice(idx, 1);
       else arr.push(v);
       this.filter.type = arr;
+    },
+    toggleMachineType(v) {
+      const arr = Array.isArray(this.filter.machineTypes) ? this.filter.machineTypes : [];
+      const idx = arr.indexOf(v);
+      if (idx >= 0) arr.splice(idx, 1);
+      else arr.push(v);
+      this.filter.machineTypes = arr;
     },
     applyAreaFromRegeo(regeo) {
       const province = regeo?.province || '';
@@ -303,9 +331,14 @@ export default {
     },
     resetFilter() {
       if (this.filterActive === 'type') this.filter.type = [];
+      else if (this.filterActive === 'machine') this.filter.machineTypes = [];
       else if (this.filterActive === 'area') this.clearArea();
       else if (this.filterActive === 'budget') this.filter.budgetMin = this.filter.budgetMax = '';
       else if (this.filterActive === 'sort') this.filter.sort = 'distance';
+      else if (this.filterActive === 'more') {
+        this.filter.onlyUrgent = false;
+        this.filter.onlyHasVideo = false;
+      }
     },
     applyFilter() {
       this.$refs.filterPopup.close();
@@ -327,10 +360,13 @@ export default {
       if (this.filter.budgetMax) params.budgetMax = this.filter.budgetMax;
       if (this.keyword) params.keyword = this.keyword;
       if (this.filter.sort) params.sort = this.filter.sort;
+      if (Array.isArray(this.filter.machineTypes) && this.filter.machineTypes.length) params.machineTypes = this.filter.machineTypes.join(',');
       if (this.filter.sort === 'distance' && this.location.latitude != null) {
         params.latitude = this.location.latitude;
         params.longitude = this.location.longitude;
       }
+      if (this.filter.onlyUrgent) params.isUrgent = 'Y';
+      if (this.filter.onlyHasVideo) params.hasVideo = '1';
       return apiService.getDemands(params).then((res) => {
         const data = res?.data ?? res;
         const list = data?.list ?? (Array.isArray(data) ? data : []);

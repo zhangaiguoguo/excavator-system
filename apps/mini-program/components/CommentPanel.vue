@@ -14,7 +14,7 @@
             <text class="comment-time">{{ timeStr(c.createTime) }}</text>
           </view>
           <text class="comment-content">{{ c.content }}</text>
-          <view class="comment-actions">
+          <view class="comment-actions flex justify-end">
             <view class="like-wrap" @click="toggleLike(c)">
               <uni-icons :type="c.liked ? 'hand-up-filled' : 'hand-up'" size="16" :color="c.liked ? '#ff4d4f' : '#999'" />
               <text class="like-num" :class="{ liked: c.liked }">{{ c.likeCount || 0 }}</text>
@@ -38,7 +38,7 @@
 </template>
 
 <script>
-import apiService, { getFileViewUrl } from '@/api/api';
+import apiService from '@/api/api';
 import appStore from '@/store/app';
 
 export default {
@@ -66,8 +66,9 @@ export default {
     avatarUrl(user) {
       if (!user || !user.avatar) return '/static/default_avatar.png';
       const a = user.avatar;
-      if (typeof a === 'string' && (a.startsWith('http://') || a.startsWith('https://'))) return a;
-      return getFileViewUrl(a) || '/static/default_avatar.png';
+      // 头像字段已存完整 URL（后端直接返回），无需拼接预览地址
+      if (typeof a === 'string' && a.trim()) return a;
+      return '/static/default_avatar.png';
     },
     fetchList() {
       apiService.getComments(this.refType, String(this.refId)).then((res) => {

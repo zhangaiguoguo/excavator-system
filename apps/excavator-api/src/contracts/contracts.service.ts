@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Contract } from './contract.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { v4 as uuidv4 } from 'uuid';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 @Injectable()
 export class ContractsService {
@@ -11,6 +12,7 @@ export class ContractsService {
     @InjectRepository(Contract)
     private contractsRepository: Repository<Contract>,
     private notificationsService: NotificationsService,
+    private realtimeGateway: RealtimeGateway,
   ) {}
 
   async findAll(
@@ -72,6 +74,7 @@ export class ContractsService {
         refId: String(saved.id),
       });
     }
+    this.realtimeGateway.notifyContentUpdated('contract', String(saved.id));
     return saved;
   }
 
@@ -80,7 +83,9 @@ export class ContractsService {
     contractData: Partial<Contract>,
   ): Promise<Contract | null> {
     await this.contractsRepository.update(id, contractData);
-    return this.contractsRepository.findOneBy({ id });
+    const c = await this.contractsRepository.findOneBy({ id });
+    if (c) this.realtimeGateway.notifyContentUpdated('contract', String(id));
+    return c;
   }
 
   async sign(
@@ -115,6 +120,8 @@ export class ContractsService {
     }
 
     await this.contractsRepository.update(id, updateData);
-    return this.contractsRepository.findOneBy({ id });
+    const updated = await this.contractsRepository.findOneBy({ id });
+    if (updated) this.realtimeGateway.notifyContentUpdated('contract', String(id));
+    return updated;
   }
 }

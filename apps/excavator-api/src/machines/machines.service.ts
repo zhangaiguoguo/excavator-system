@@ -7,6 +7,7 @@ import { CryptoService } from '../common/crypto/crypto.service';
 import { CreateMachineDto, FileItemDto } from './dto/create-machine.dto';
 import { UpdateMachineDto } from './dto/update-machine.dto';
 import { Constants } from '@excavator/types';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 function normalizeFileItem(
   v: string | FileItemDto | undefined | null,
@@ -34,6 +35,7 @@ export class MachinesService {
     private machinesRepository: Repository<Machine>,
     private cryptoService: CryptoService,
     private usersService: UsersService,
+    private realtimeGateway: RealtimeGateway,
   ) {}
 
   async findAll(filters?: {
@@ -209,6 +211,7 @@ export class MachinesService {
     if (updateByUserId !== undefined)
       payload.updateBy = String(updateByUserId);
     await this.machinesRepository.update(id, payload);
+    this.realtimeGateway.notifyContentUpdated('machine', String(id));
     return this.machinesRepository.findOne({
       where: { id },
       relations: ['user'],

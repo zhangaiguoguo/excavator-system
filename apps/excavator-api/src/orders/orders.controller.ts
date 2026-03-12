@@ -13,6 +13,7 @@ export class OrdersController {
   @Get()
   findAll(
     @Query('type') type?: string,
+    @Query('machineTypes') machineTypes?: string,
     @Query('province') province?: string,
     @Query('city') city?: string,
     @Query('district') district?: string,
@@ -21,14 +22,30 @@ export class OrdersController {
     @Query('keyword') keyword?: string,
     @Query('userId') userId?: string,
     @Query('sort') sort?: string,
+    @Query('isUrgent') isUrgent?: string,
+    @Query('hasVideo') hasVideo?: string,
+    @Query('hasImage') hasImage?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : undefined;
     const pageSizeNum = pageSize ? parseInt(pageSize, 10) : undefined;
     return this.ordersService.findAll({
-      type, province, city, district, budgetMin, budgetMax, keyword, userId, sort,
-      page: pageNum, pageSize: pageSizeNum,
+      type,
+      machineTypes,
+      province,
+      city,
+      district,
+      budgetMin,
+      budgetMax,
+      keyword,
+      userId,
+      sort,
+      isUrgent,
+      hasVideo,
+      hasImage,
+      page: pageNum,
+      pageSize: pageSizeNum,
     });
   }
 

@@ -109,6 +109,7 @@ export default {
       loading: false,
       work_hours_unit: useDictOne('work_hours_unit'),
       machine_type: useDictOne('machine_type'),
+      machine_types: useDictOne('machine_types'),
     };
   },
   computed: {
@@ -131,7 +132,7 @@ export default {
   methods: {
     getFileViewUrl,
     demandEquipmentText(item) {
-      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_types);
     },
     rentUnitLabel(v) {
       const arr = this.work_hours_unit?.value ?? this.work_hours_unit ?? [];

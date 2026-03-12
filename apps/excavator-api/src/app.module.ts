@@ -32,6 +32,7 @@ import { CryptoModule } from './common/crypto/crypto.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GeoModule } from './geo/geo.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { GeoModule } from './geo/geo.module';
     FavoritesModule,
     NotificationsModule,
     CommentsModule,
+    RealtimeModule,
     AuthModule,
     DictModule,
     FileModule,

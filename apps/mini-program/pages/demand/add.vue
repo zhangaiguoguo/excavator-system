@@ -96,7 +96,9 @@
 					province: '',
 					city: '',
 					district: '',
-					address: ''
+					address: '',
+					latitude: undefined,
+					longitude: undefined,
 				},
 				form: {
 					userId: '',
@@ -106,6 +108,8 @@
 					province: '',
 					city: '',
 					district: '',
+					latitude: undefined,
+					longitude: undefined,
 					address: '',
 					startDate: '',
 					endDate: '',

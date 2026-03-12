@@ -116,6 +116,7 @@
 				work_hours_unit: useDictOne('work_hours_unit'),
 				job_experience: useDictOne('job_experience'),
 				machine_type: useDictOne('machine_type'),
+				machine_types: useDictOne('machine_types'),
 			};
 		},
 		computed: {
@@ -235,7 +236,7 @@
 				});
 			},
 			demandEquipmentText(item) {
-				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_types);
 			},
 			demandDateText(item) {
 				return formatDemandDateRange(item.startDate, item.endDate, DemandDateUnlimited.START, DemandDateUnlimited.END);

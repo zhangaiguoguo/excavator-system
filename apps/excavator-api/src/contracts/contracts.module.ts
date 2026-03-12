@@ -4,11 +4,13 @@ import { ContractsService } from './contracts.service';
 import { ContractsController } from './contracts.controller';
 import { Contract } from './contract.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Contract]),
     NotificationsModule,
+    RealtimeModule,
   ],
   providers: [ContractsService],
   controllers: [ContractsController],

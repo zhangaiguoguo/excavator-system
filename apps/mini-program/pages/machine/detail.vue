@@ -1,5 +1,10 @@
 <template>
   <view class="page">
+    <view v-if="showUpdateTip" class="update-tip">
+      <text class="update-text">设备信息已更新，点击刷新查看最新内容</text>
+      <text class="update-btn" @click="refreshDetail">刷新</text>
+      <text class="update-close" @click="showUpdateTip = false">关闭</text>
+    </view>
     <view v-if="loading" class="loading-wrap"><uni-load-more status="loading" /></view>
     <template v-else-if="machine.id">
       <view class="card banner-card">
@@ -61,8 +66,8 @@
         </view>
       </view>
       <view class="footer-bar">
-        <button type="default" class="btn" @click="goContract">发起合同</button>
-        <button type="primary" class="btn" @click="contactOwner">立即联系</button>
+        <button type="default" class="btn" @click="goChat">实时聊天</button>
+        <button type="primary" class="btn" @click="goContract">发起合同</button>
       </view>
     </template>
     <view v-else class="empty">设备不存在或已下架</view>
@@ -75,23 +80,43 @@ import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
 import CommentPanel from '@/components/CommentPanel.vue';
+import ChatPanel from '@/components/ChatPanel.vue';
+import realtime from '@/common/service/realtime.js';
 
 export default {
-  components: { CommentPanel },
+  components: { CommentPanel, ChatPanel },
   data() {
     return {
+      machineId: '',
       machine: {},
       loading: true,
       isFav: false,
+      showUpdateTip: false,
+      offRealtime: null,
       work_hours_unit: useDictOne('work_hours_unit'),
       machine_condition: useDictOne('machine_condition'),
     };
   },
   onLoad(options) {
     if (options.id) {
-      this.fetchDetail(options.id);
-      this.checkFav(options.id);
+      this.machineId = String(options.id);
+      this.fetchDetail(this.machineId);
+      this.checkFav(this.machineId);
+      realtime.subscribe('machine', this.machineId);
+      this.offRealtime = realtime.on((event, data) => {
+        if (event === 'content_updated' && data && data.refType === 'machine' && String(data.refId) === this.machineId) {
+          this.showUpdateTip = true;
+        }
+        if (event === 'reconnected') {
+          this.fetchDetail(this.machineId);
+        }
+      });
     } else this.loading = false;
+  },
+  onUnload() {
+    if (this.machineId) realtime.unsubscribe('machine', this.machineId);
+    if (this.offRealtime) this.offRealtime();
+    this.offRealtime = null;
   },
   methods: {
     getFileViewUrl,
@@ -113,6 +138,10 @@ export default {
         })
         .catch(() => { this.machine = {}; })
         .finally(() => { this.loading = false; });
+    },
+    refreshDetail() {
+      this.showUpdateTip = false;
+      if (this.machineId) this.fetchDetail(this.machineId);
     },
     checkFav(machineId) {
       const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
@@ -180,6 +209,17 @@ export default {
       if (phone) uni.makePhoneCall({ phoneNumber: String(phone) });
       else this.$tip.alert('暂无联系方式');
     },
+    goChat() {
+      if (!this.machine || !this.machine.id) return;
+      const title = '与机主聊天';
+      uni.navigateTo({
+        url:
+          '/pages/chat/index?refType=machine&refId=' +
+          this.machine.id +
+          '&title=' +
+          encodeURIComponent(title),
+      });
+    },
     goContract() {
       uni.navigateTo({ url: '/pages/contract/create?machineId=' + this.machine.id });
     },
@@ -189,6 +229,40 @@ export default {
 
 <style lang="scss" scoped>
 .page { min-height: 100vh; background: #F5F6F8; padding-bottom: 90px; }
+.update-tip {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(74, 177, 247, 0.12);
+  border: 1px solid rgba(74, 177, 247, 0.25);
+  color: #1a1a1a;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.update-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.update-btn {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #007aff;
+  font-weight: 600;
+}
+.update-close {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #666;
+}
 .loading-wrap { padding: 40px 0; }
 .card {
   background: #fff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);

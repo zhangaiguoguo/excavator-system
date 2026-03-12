@@ -129,6 +129,12 @@
 				"navigationBarTitleText": "消息通知",
 				"enablePullDownRefresh": true
 			}
+		},
+		{
+			"path": "pages/chat/index",
+			"style": {
+				"navigationBarTitleText": "实时聊天"
+			}
 		}
 	],
 	"globalStyle": {

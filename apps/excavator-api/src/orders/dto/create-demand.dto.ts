@@ -13,6 +13,8 @@ export class CreateDemandDto {
   province: string;
   city: string;
   district: string;
+  latitude?: number;
+  longitude?: number;
   address: string;
   startDate: string; // YYYY-MM-DD
   endDate: string;

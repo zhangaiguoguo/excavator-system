@@ -1,5 +1,10 @@
 <template>
   <view class="page">
+    <view v-if="showUpdateTip" class="update-tip">
+      <text class="update-text">需求内容已更新，点击刷新查看最新内容</text>
+      <text class="update-btn" @click="refreshDetail">刷新</text>
+      <text class="update-close" @click="showUpdateTip = false">关闭</text>
+    </view>
     <view v-if="loading" class="loading-wrap">
       <uni-load-more status="loading" />
     </view>
@@ -73,7 +78,7 @@
 
       <!-- 底部操作 -->
       <view class="footer-bar">
-        <button class="btn-contact" @click="contactUser">联系对方</button>
+        <button class="btn-contact" @click="goChat">实时聊天</button>
         <button
           v-if="demand.status === '1' && !isMyDemand"
           type="primary"
@@ -96,14 +101,19 @@ import { useDictOne } from '@/hooks/useDict';
 import { formatDemandMachineTypes, formatDemandDateRange } from '@/common/util/util.js';
 import { DemandDateUnlimited } from '@excavator/utils';
 import CommentPanel from '@/components/CommentPanel.vue';
+import ChatPanel from '@/components/ChatPanel.vue';
+import realtime from '@/common/service/realtime.js';
 
 export default {
-  components: { CommentPanel },
+  components: { CommentPanel, ChatPanel },
   data() {
     return {
+      demandId: '',
       demand: {},
       loading: true,
-      dictOptions: { machine_type: useDictOne('machine_type') },
+      showUpdateTip: false,
+      offRealtime: null,
+      dictOptions: { machine_types: useDictOne('machine_types') },
     };
   },
   computed: {
@@ -111,7 +121,7 @@ export default {
       return formatDemandMachineTypes(
         this.demand.machineTypes,
         this.demand.machineTypeOther,
-        this.dictOptions.machine_type,
+        this.dictOptions.machine_types,
       );
     },
     demandDateText() {
@@ -134,8 +144,25 @@ export default {
     },
   },
   onLoad(options) {
-    if (options.id) this.fetchDetail(options.id);
-    else this.loading = false;
+    if (options.id) {
+      this.demandId = String(options.id);
+      this.fetchDetail(this.demandId);
+      realtime.subscribe('demand', this.demandId);
+      this.offRealtime = realtime.on((event, data) => {
+        if (event === 'content_updated' && data && data.refType === 'demand' && String(data.refId) === this.demandId) {
+          this.showUpdateTip = true;
+        }
+        if (event === 'reconnected') {
+          // 断网重连后同步最新内容，避免通知丢失
+          this.fetchDetail(this.demandId);
+        }
+      });
+    } else this.loading = false;
+  },
+  onUnload() {
+    if (this.demandId) realtime.unsubscribe('demand', this.demandId);
+    if (this.offRealtime) this.offRealtime();
+    this.offRealtime = null;
   },
   methods: {
     getFileViewUrl,
@@ -168,6 +195,10 @@ export default {
         .finally(() => {
           this.loading = false;
         });
+    },
+    refreshDetail() {
+      this.showUpdateTip = false;
+      this.fetchDetail(this.demandId);
     },
     dateStr(d) {
       if (!d) return '';
@@ -202,6 +233,17 @@ export default {
       if (phone) uni.makePhoneCall({ phoneNumber: String(phone) });
       else this.$tip.alert('暂无联系方式');
     },
+    goChat() {
+      if (!this.demand || !this.demand.id) return;
+      const title = this.demand.type === '2' ? '与招聘方聊天' : '与需求方聊天';
+      uni.navigateTo({
+        url:
+          '/pages/chat/index?refType=demand&refId=' +
+          this.demand.id +
+          '&title=' +
+          encodeURIComponent(title),
+      });
+    },
     goTakeOrder() {
       // 接单 = 去发起合同，关联本需求 + 选择我的设备
       uni.navigateTo({
@@ -218,6 +260,40 @@ export default {
   background: #F5F6F8;
   padding: 16px;
   padding-bottom: 100px;
+}
+.update-tip {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(74, 177, 247, 0.12);
+  border: 1px solid rgba(74, 177, 247, 0.25);
+  color: #1a1a1a;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.update-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.update-btn {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #007aff;
+  font-weight: 600;
+}
+.update-close {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #666;
 }
 .loading-wrap {
   padding: 40px 0;

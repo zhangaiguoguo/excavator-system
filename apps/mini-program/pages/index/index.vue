@@ -166,6 +166,7 @@
 				work_hours_unit: useDictOne('work_hours_unit'),
 				machine_condition: useDictOne('machine_condition'),
 				machine_type: useDictOne('machine_type'),
+				machine_types: useDictOne('machine_types'),
 				demand_type: useDictOne('demand_type'),
 			};
 		},
@@ -266,7 +267,7 @@
 				return o ? o.text : v || '';
 			},
 			demandEquipmentText(item) {
-				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_types);
 			},
 			fetchLocation() {
 				uni.getLocation({
