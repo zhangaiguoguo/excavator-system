@@ -11,7 +11,9 @@ export class FavoritesService {
   ) {}
 
   async add(userId: string, refType: string, refId: string): Promise<Favorite> {
-    const exists = await this.favRepository.findOne({ where: { userId, refType, refId } });
+    const exists = await this.favRepository.findOne({
+      where: { userId, refType, refId },
+    });
     if (exists) return exists;
     const fav = this.favRepository.create({ userId, refType, refId });
     return this.favRepository.save(fav);
@@ -22,11 +24,20 @@ export class FavoritesService {
   }
 
   async list(userId: string): Promise<Favorite[]> {
-    return this.favRepository.find({ where: { userId }, order: { createTime: 'DESC' } });
+    return this.favRepository.find({
+      where: { userId },
+      order: { createTime: 'DESC' },
+    });
   }
 
-  async isFav(userId: string, refType: string, refId: string): Promise<boolean> {
-    const one = await this.favRepository.findOne({ where: { userId, refType, refId } });
+  async isFav(
+    userId: string,
+    refType: string,
+    refId: string,
+  ): Promise<boolean> {
+    const one = await this.favRepository.findOne({
+      where: { userId, refType, refId },
+    });
     return !!one;
   }
 }

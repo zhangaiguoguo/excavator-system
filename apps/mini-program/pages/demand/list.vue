@@ -109,13 +109,17 @@
           {{ item.type === '2' ? '招聘机手' : '求租设备' }}
         </view>
         <view class="card-body">
+          <view class="card-equipment">
+            <text class="card-equipment-label">所需设备：</text>
+            <text class="card-equipment-text">{{ machineTypesText(item) }}</text>
+          </view>
           <text class="card-desc">{{ descSlice(item.description) }}</text>
           <view class="card-meta">
             <uni-icons type="location-filled" size="14" color="#999" />
             <text>{{ item.province }}{{ item.city }}{{ item.district ? item.district : '' }}</text>
           </view>
           <view class="card-meta">
-            <text>{{ dateStr(item.startDate) }} 至 {{ dateStr(item.endDate) }}</text>
+            <text>{{ demandDateText(item) }}</text>
           </view>
           <view class="card-footer">
             <text class="budget">{{ budgetText(item) }}</text>
@@ -141,6 +145,8 @@
 import apiService, { getFileViewUrl } from '@/api/api';
 import { useDictOne } from '@/hooks/useDict';
 import { tryRefreshList } from '@/common/util/listRefresh.js';
+import { formatDemandMachineTypes, formatDemandDateRange } from '@/common/util/util.js';
+import { DemandDateUnlimited } from '@excavator/utils';
 
 export default {
   data() {
@@ -179,6 +185,7 @@ export default {
       },
       dictOptions: {
         demand_type: useDictOne('demand_type'),
+        machine_type: useDictOne('machine_type'),
       },
       areaText: '',
     };
@@ -197,6 +204,12 @@ export default {
   },
   methods: {
     getFileViewUrl,
+    machineTypesText(item) {
+      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.dictOptions.machine_type);
+    },
+    demandDateText(item) {
+      return formatDemandDateRange(item.startDate, item.endDate, DemandDateUnlimited.START, DemandDateUnlimited.END);
+    },
     toggleType(v) {
       const arr = Array.isArray(this.filter.type) ? this.filter.type : [];
       const idx = arr.indexOf(v);
@@ -503,12 +516,41 @@ export default {
   &.job { background: #f3e5f5; color: #7b1fa2; }
 }
 .card-body { padding: 14px 16px; padding-right: 70px; }
+.card-equipment {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+.card-equipment-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #999;
+}
+.card-equipment-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: #333;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
 .card-desc {
   font-size: 15px;
   color: #1a1a1a;
   line-height: 1.45;
-  display: block;
   margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .card-meta {
   display: flex;

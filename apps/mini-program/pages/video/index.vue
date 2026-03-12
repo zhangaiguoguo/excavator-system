@@ -20,9 +20,9 @@
             class="feed-video"
             :src="item.videoUrl"
             autoplay
-            muted
             controls
             :id="'video-' + idx"
+            @ended="onVideoEnded(idx)"
             @click.stop
           />
           <image
@@ -39,6 +39,7 @@
               <text v-if="item.location" class="loc">{{ item.location }}</text>
             </view>
             <view class="feed-actions">
+              <button class="btn-comment" @click.stop="openComment(item)">评论</button>
               <button class="btn-detail" @click="goDetail(item)">
                 {{ item.source === 'machine' ? '看设备' : '看需求' }}
               </button>
@@ -47,19 +48,28 @@
         </view>
       </swiper-item>
     </swiper>
+    <uni-popup ref="commentPopup" type="bottom" background-color="#fff" border-radius="16 16 0 0">
+      <view class="comment-popup-content" v-if="commentTarget">
+        <view class="popup-title">评论</view>
+        <CommentPanel :refType="commentTarget.source" :refId="commentTarget.id" />
+      </view>
+    </uni-popup>
   </view>
 </template>
 
 <script>
 import apiService, { getFileViewUrl } from '@/api/api';
+import CommentPanel from '@/components/CommentPanel.vue';
 
 export default {
+  components: { CommentPanel },
   data() {
     return {
       loading: true,
       loadingMore: false,
       feedList: [],
       currentIndex: 0,
+      commentTarget: null,
       machinePage: 1,
       demandPage: 1,
       pageSize: 6,
@@ -95,6 +105,16 @@ export default {
           this.loadMoreFeed();
         },
       });
+    },
+    onVideoEnded(idx) {
+      // 当前视频播放结束后，自动切到下一条
+      const next = idx + 1;
+      if (next < this.feedList.length) {
+        this.currentIndex = next;
+        return;
+      }
+      // 已是最后一条，尝试加载更多
+      this.loadMoreFeed();
     },
     resetFeed() {
       this.feedList = [];
@@ -218,6 +238,12 @@ export default {
         this.loadMoreFeed();
       }
     },
+    openComment(item) {
+      this.commentTarget = { source: item.source, id: item.id };
+      this.$nextTick(() => {
+        this.$refs.commentPopup && this.$refs.commentPopup.open();
+      });
+    },
     goDetail(item) {
       if (item.source === 'machine') {
         uni.navigateTo({ url: '/pages/machine/detail?id=' + item.id });
@@ -302,8 +328,21 @@ export default {
 .feed-meta .heat {
   margin-right: 12px;
 }
+.feed-actions {
+  display: flex;
+  gap: 10px;
+}
+.btn-comment {
+  flex: 1;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  margin: 0;
+}
 .btn-detail {
-  width: 100%;
+  flex: 1;
   border-radius: 24px;
   background: #4AB1F7;
   color: #fff;
@@ -311,5 +350,16 @@ export default {
   font-size: 15px;
   line-height: 44px;
   height: 44px;
+}
+.comment-popup-content {
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.popup-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 </style>

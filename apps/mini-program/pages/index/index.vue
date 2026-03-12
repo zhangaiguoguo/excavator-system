@@ -1,11 +1,16 @@
 <template>
 	<view class="page">
-		<!-- 顶部导航 + 搜索 -->
+		<!-- 顶部导航：标题 + 当前地址（如美团） -->
 		<view class="top-bar">
 			<view class="navbar">
 				<view class="brand">
 					<image src="/static/logo.png" class="nav-logo" mode="aspectFit" />
 					<text class="brand-name">挖掘机之家</text>
+				</view>
+				<view class="addr-bar" @click="refreshAddress">
+					<uni-icons type="location-filled" size="16" color="#4AB1F7" />
+					<text class="addr-text">{{ currentAddress || '定位中...' }}</text>
+					<uni-icons type="right" size="12" color="#999" />
 				</view>
 			</view>
 		</view>
@@ -98,6 +103,7 @@
 				<view v-for="item in latestDemands" :key="item.id" class="demand-row" @click="goDemandDetail(item.id)">
 					<view class="demand-left">
 						<text class="demand-type">{{ transformDictValue(item.type,demand_type) }}</text>
+						<text class="demand-equipment">{{ demandEquipmentText(item) }}</text>
 						<text class="demand-desc mt-2">{{ descSlice(item.description) }}</text>
 					</view>
 					<view class="demand-right">
@@ -119,8 +125,10 @@
 	} from '@/hooks/useDict';
 	import ActivityCard from '@/components/ActivityCard.vue';
 	import {
-		transformDictValue
+		transformDictValue,
+		formatDemandMachineTypes
 	} from "@/common/util/util"
+	import appStore from '@/store/app';
 	import brannerBImg from "@/static/swiper/2.png";
 	import brannerCImg from "@/static/swiper/3.png";
 
@@ -131,6 +139,7 @@
 		data() {
 			return {
 				categoryActive: 'home',
+				currentAddress: '',
 				categoryTabs: [{
 						key: 'home',
 						label: '首页'
@@ -161,8 +170,14 @@
 			};
 		},
 		onLoad() {
+			this.currentAddress = (appStore().state && appStore().state.currentAddress) || uni.getStorageSync('currentAddress') || '';
+			this.fetchLocation();
 			this.fetchRecommend();
 			this.fetchDemands();
+		},
+		onShow() {
+			const addr = (appStore().state && appStore().state.currentAddress) || uni.getStorageSync('currentAddress') || '';
+			if (addr) this.currentAddress = addr;
 		},
 		onPullDownRefresh() {
 			Promise.all([this.fetchRecommend(), this.fetchDemands()]).finally(() =>
@@ -250,6 +265,39 @@
 				const o = arr.find((x) => x.value === v);
 				return o ? o.text : v || '';
 			},
+			demandEquipmentText(item) {
+				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+			},
+			fetchLocation() {
+				uni.getLocation({
+					type: 'gcj02',
+					success: (res) => {
+						apiService
+							.regeoLocation({
+								longitude: res.longitude,
+								latitude: res.latitude,
+								extensions: 'base'
+							})
+							.then((r) => {
+								const data = r?.data ?? r;
+								const addr = [data?.city, data?.district].filter(Boolean).join('·') || data?.province || '当前定位';
+								const store = appStore();
+								store.setCurrentAddress && store.setCurrentAddress(addr);
+								this.currentAddress = addr;
+							})
+							.catch(() => {
+								this.currentAddress = '定位失败';
+							});
+					},
+					fail: () => {
+						this.currentAddress = (appStore().state && appStore().state.currentAddress) || '未授权定位';
+					}
+				});
+			},
+			refreshAddress() {
+				this.currentAddress = '定位中...';
+				this.fetchLocation();
+			},
 			descSlice(s) {
 				if (!s) return '需求';
 				return s.length > 24 ? s.slice(0, 24) + '...' : s;
@@ -295,6 +343,24 @@
 			font-weight: 800;
 			color: #333;
 		}
+	}
+
+	.addr-bar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		background: #F5F6F8;
+		border-radius: 20px;
+		max-width: 240px;
+	}
+	.addr-text {
+		font-size: 13px;
+		color: #333;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		flex: 1;
 	}
 
 	.search-wrap {
@@ -542,13 +608,24 @@
 		border: 1px solid #eef0f4;
 
 		.demand-left {
-			width: 70%;
+			flex: 1;
+			min-width: 0;
 			display: flex;
 			flex-direction: column;
 		}
 
+		.demand-equipment {
+			font-size: 12px;
+			color: #666;
+			margin-top: 4px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
 		.demand-right {
-			width: 30%;
+			flex-shrink: 0;
+			margin-left: 8px;
 		}
 
 		&:last-child {
@@ -557,7 +634,6 @@
 	}
 
 	.demand-desc {
-		flex: 1;
 		font-size: 14px;
 		color: #333;
 		overflow: hidden;

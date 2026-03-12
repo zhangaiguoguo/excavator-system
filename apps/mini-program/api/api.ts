@@ -153,6 +153,17 @@ class ApiServer {
 		return http.get('/favorites/check', { params: { userId, refType, refId } });
 	}
 
+	// 评论（设备/需求，看视频时可查看与发表）
+	getComments(refType: string, refId: string) {
+		return http.get('/comments', { params: { refType, refId } });
+	}
+	createComment(refType: string, refId: string, content: string) {
+		return http.post('/comments', { refType, refId, content });
+	}
+	toggleCommentLike(commentId: string) {
+		return http.post('/comments/' + commentId + '/like', {});
+	}
+
 	// 通知（需登录，后端从 token 取 userId）
 	getNotifications(params ?: { page ?: number; pageSize ?: number; unreadOnly ?: boolean }) {
 		const p: Record<string, string | number> = {};

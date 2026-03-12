@@ -27,22 +27,27 @@
           <text class="tag type-tag">{{ demand.type === '2' ? '招聘机手' : '求租设备' }}</text>
           <text class="tag status-tag">{{ statusText }}</text>
         </view>
+        <view class="info-row equipment-row">
+          <text class="label">所需设备</text>
+          <text class="info-text equipment-text">{{ machineTypesText }}</text>
+        </view>
         <view class="budget-row">
           <text class="label">预算</text>
           <text class="budget">{{ budgetText(demand) }}</text>
         </view>
         <view class="date-row">
           <uni-icons type="calendar" size="16" color="#999" />
-          <text>{{ dateStr(demand.startDate) }} 至 {{ dateStr(demand.endDate) }}</text>
+          <text>{{ demandDateText }}</text>
         </view>
       </view>
 
       <!-- 施工地址 -->
       <view class="card">
         <view class="section-title">施工地址</view>
-        <view class="addr-row">
+        <view class="addr-row addr-click" @click="openMap">
           <uni-icons type="location-filled" size="16" color="#4AB1F7" />
-          <text>{{ demand.province }}{{ demand.city }}{{ demand.district || '' }} {{ demand.address }}</text>
+          <text class="addr-text">{{ demand.province }}{{ demand.city }}{{ demand.district || '' }} {{ demand.address }}</text>
+          <uni-icons type="location" size="16" color="#4AB1F7" />
         </view>
       </view>
 
@@ -50,6 +55,11 @@
       <view class="card">
         <view class="section-title">需求描述</view>
         <text class="desc">{{ demand.description || '暂无' }}</text>
+      </view>
+
+      <!-- 评论 -->
+      <view class="card">
+        <CommentPanel refType="demand" :refId="demand.id" />
       </view>
 
       <!-- 发布人（机主/施工方） -->
@@ -82,15 +92,36 @@
 <script>
 import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
+import { useDictOne } from '@/hooks/useDict';
+import { formatDemandMachineTypes, formatDemandDateRange } from '@/common/util/util.js';
+import { DemandDateUnlimited } from '@excavator/utils';
+import CommentPanel from '@/components/CommentPanel.vue';
 
 export default {
+  components: { CommentPanel },
   data() {
     return {
       demand: {},
       loading: true,
+      dictOptions: { machine_type: useDictOne('machine_type') },
     };
   },
   computed: {
+    machineTypesText() {
+      return formatDemandMachineTypes(
+        this.demand.machineTypes,
+        this.demand.machineTypeOther,
+        this.dictOptions.machine_type,
+      );
+    },
+    demandDateText() {
+      return formatDemandDateRange(
+        this.demand.startDate,
+        this.demand.endDate,
+        DemandDateUnlimited.START,
+        DemandDateUnlimited.END,
+      );
+    },
     statusText() {
       const s = this.demand.status;
       if (s === '0') return '已关闭';
@@ -151,6 +182,21 @@ export default {
       if (item.budgetMax != null) return '≤' + item.budgetMax + '元';
       return '面议';
     },
+    openMap() {
+      const lat = this.demand.latitude != null ? Number(this.demand.latitude) : null;
+      const lng = this.demand.longitude != null ? Number(this.demand.longitude) : null;
+      const name = [this.demand.province, this.demand.city, this.demand.district, this.demand.address].filter(Boolean).join('');
+      if (lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+        uni.openLocation({
+          latitude: lat,
+          longitude: lng,
+          name: name || '施工地址',
+          address: name || '',
+        });
+      } else {
+        this.$tip && this.$tip.alert('暂无坐标，无法打开地图');
+      }
+    },
     contactUser() {
       const phone = this.demand?.user?.phone;
       if (phone) uni.makePhoneCall({ phoneNumber: String(phone) });
@@ -193,6 +239,11 @@ export default {
   .tag { padding: 4px 10px; border-radius: 8px; font-size: 12px; }
   .type-tag { background: #e8f4fd; color: #4AB1F7; }
   .status-tag { background: #f0f2f5; color: #666; }
+  .info-row { margin-bottom: 8px; }
+  .info-text { font-size: 14px; color: #333; word-break: break-all; }
+  .equipment-row { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+  .equipment-row .label { flex-shrink: 0; }
+  .equipment-text { flex: 1; min-width: 0; }
   .budget-row { margin-bottom: 8px; }
   .label { font-size: 13px; color: #999; margin-right: 8px; }
   .budget { font-size: 18px; font-weight: 700; color: #FF4D4F; }
@@ -204,6 +255,8 @@ export default {
 .addr-row, .user-row {
   display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333;
 }
+.addr-click { cursor: pointer; }
+.addr-text { flex: 1; }
 .desc { font-size: 14px; color: #333; line-height: 1.6; display: block; }
 .user-row .phone { color: #4AB1F7; margin-left: auto; }
 .footer-bar {

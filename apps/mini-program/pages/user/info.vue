@@ -33,7 +33,7 @@
 				<!-- 手机号 -->
 				<uni-forms-item name="phone" label="手机号" required>
 					<view class="form-item">
-						<uni-easyinput v-model="form.phone" placeholder="请输入手机号">
+						<uni-easyinput v-model="form.phone" type="number" placeholder="请输入手机号">
 						</uni-easyinput>
 					</view>
 				</uni-forms-item>

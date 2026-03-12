@@ -12,22 +12,31 @@ function normalizeFileItem(
 ): { fileId: string; fileName: string } | null {
   if (v == null || v === '') return null;
   if (typeof v === 'string') return { fileId: v, fileName: v };
-  if (v.fileId || v.fileName) return { fileId: v.fileId || v.fileName, fileName: v.fileName || v.fileId };
+  if (v.fileId || v.fileName)
+    return { fileId: v.fileId || v.fileName, fileName: v.fileName || v.fileId };
   return null;
 }
 
-function normalizeFileItems(v: (string | FileItemDto)[] | undefined): Array<{ fileId: string; fileName: string }> {
+function normalizeFileItems(
+  v: (string | FileItemDto)[] | undefined,
+): Array<{ fileId: string; fileName: string }> {
   if (!Array.isArray(v)) return [];
-  return v.map((it) => normalizeFileItem(it)).filter((x): x is { fileId: string; fileName: string } => x != null);
+  return v
+    .map((it) => normalizeFileItem(it))
+    .filter((x): x is { fileId: string; fileName: string } => x != null);
 }
 
 function parseDateOrThrow(value: string | undefined, fieldName: string): Date {
   if (!value) {
-    throw new BadRequestException(`${fieldName} is required and must be in YYYY-MM-DD format`);
+    throw new BadRequestException(
+      `${fieldName} is required and must be in YYYY-MM-DD format`,
+    );
   }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) {
-    throw new BadRequestException(`${fieldName} is invalid, expected YYYY-MM-DD`);
+    throw new BadRequestException(
+      `${fieldName} is invalid, expected YYYY-MM-DD`,
+    );
   }
   return d;
 }
@@ -56,7 +65,8 @@ export class OrdersService {
   }): Promise<{ list: Order[]; total: number }> {
     const page = Math.max(1, filters?.page ?? 1);
     const pageSize = Math.min(50, Math.max(1, filters?.pageSize ?? 10));
-    const qb = this.ordersRepository.createQueryBuilder('d')
+    const qb = this.ordersRepository
+      .createQueryBuilder('d')
       .leftJoinAndSelect('d.user', 'user')
       .where('d.status = :status', { status: '1' });
     if (filters?.type) {
@@ -68,29 +78,46 @@ export class OrdersService {
       else qb.andWhere('d.type IN (:...types)', { types });
     }
     /* 地区按省、市筛选；有区时按区排序：同区优先，区不同往后排 */
-    if (filters?.province) qb.andWhere('d.province = :province', { province: filters.province });
+    if (filters?.province)
+      qb.andWhere('d.province = :province', { province: filters.province });
     if (filters?.city) qb.andWhere('d.city = :city', { city: filters.city });
     if (filters?.district) {
       qb.addSelect('(d.district = :districtOrder)', 'districtMatch')
         .setParameter('districtOrder', filters.district)
         .addOrderBy('districtMatch', 'DESC');
     }
-    if (filters?.budgetMin) qb.andWhere('d.budget_max >= :budgetMin', { budgetMin: filters.budgetMin });
-    if (filters?.budgetMax) qb.andWhere('d.budget_min <= :budgetMax', { budgetMax: filters.budgetMax });
-    if (filters?.userId) qb.andWhere('d.user_id = :userId', { userId: filters.userId });
+    if (filters?.budgetMin)
+      qb.andWhere('d.budget_max >= :budgetMin', {
+        budgetMin: filters.budgetMin,
+      });
+    if (filters?.budgetMax)
+      qb.andWhere('d.budget_min <= :budgetMax', {
+        budgetMax: filters.budgetMax,
+      });
+    if (filters?.userId)
+      qb.andWhere('d.user_id = :userId', { userId: filters.userId });
     if (filters?.keyword) {
-      qb.andWhere('(d.description LIKE :kw OR d.address LIKE :kw)', { kw: '%' + filters.keyword + '%' });
+      qb.andWhere('(d.description LIKE :kw OR d.address LIKE :kw)', {
+        kw: '%' + filters.keyword + '%',
+      });
     }
     if (filters?.sort === 'price_asc') qb.addOrderBy('d.budgetMin', 'ASC');
     else if (filters?.sort === 'latest') qb.addOrderBy('d.createTime', 'DESC');
     else qb.addOrderBy('d.createTime', 'DESC');
-    const [list, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
+    const [list, total] = await qb
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
     const safeList = list.map((d) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { user, ...rest } = d as any;
       let safeUser: any = undefined;
       if (user) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const decryptedPhone =
-          user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+          user.phone != null
+            ? (this.cryptoService.decrypt(user.phone) ?? user.phone)
+            : undefined;
         safeUser = {
           id: user.id,
           nickname: user.nickname,
@@ -106,13 +133,18 @@ export class OrdersService {
   }
 
   async findOne(id: string): Promise<Order | null> {
-    const order = await this.ordersRepository.findOne({ where: { id }, relations: ['user'] });
+    const order = await this.ordersRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
     if (!order) return null;
     const { user, ...rest } = order as any;
     let safeUser: any = undefined;
     if (user) {
       const decryptedPhone =
-        user.phone != null ? this.cryptoService.decrypt(user.phone) ?? user.phone : undefined;
+        user.phone != null
+          ? (this.cryptoService.decrypt(user.phone) ?? user.phone)
+          : undefined;
       safeUser = {
         id: user.id,
         nickname: user.nickname,
@@ -129,10 +161,12 @@ export class OrdersService {
     await this.usersService.ensureUserCanPublish(dto.userId);
     const images = normalizeFileItems(dto.images);
     const video = normalizeFileItem(dto.video);
+    const userIdStr = String(dto.userId ?? '');
     const payload = {
       userId: dto.userId,
       type: dto.type,
       machineTypes: dto.machineTypes,
+      machineTypeOther: dto.machineTypeOther?.trim() || null,
       province: dto.province,
       city: dto.city,
       district: dto.district,
@@ -146,19 +180,35 @@ export class OrdersService {
       video,
       isUrgent: dto.isUrgent ?? 'N',
       status: '1',
+      createBy: userIdStr,
+      updateBy: userIdStr,
     };
     const order = this.ordersRepository.create(payload);
     return this.ordersRepository.save(order);
   }
 
-  async update(id: string, dto: UpdateDemandDto): Promise<Order | null> {
+  async update(
+    id: string,
+    dto: UpdateDemandDto,
+    updateByUserId?: string,
+  ): Promise<Order | null> {
     const payload: Record<string, unknown> = { ...dto };
     if (dto.startDate) payload.startDate = new Date(dto.startDate);
     if (dto.endDate) payload.endDate = new Date(dto.endDate);
-    if (dto.images !== undefined) payload.images = normalizeFileItems(dto.images as (string | FileItemDto)[]);
-    if (dto.video !== undefined) payload.video = normalizeFileItem(dto.video as string | FileItemDto);
+    if (dto.images !== undefined)
+      payload.images = normalizeFileItems(
+        dto.images as (string | FileItemDto)[],
+      );
+    if (dto.video !== undefined) payload.video = normalizeFileItem(dto.video);
+    if (dto.machineTypeOther !== undefined)
+      payload.machineTypeOther = dto.machineTypeOther?.trim() || null;
+    if (updateByUserId !== undefined)
+      payload.updateBy = String(updateByUserId);
     await this.ordersRepository.update(id, payload as Partial<Order>);
-    return this.ordersRepository.findOne({ where: { id }, relations: ['user'] });
+    return this.ordersRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
   }
 
   async remove(id: string): Promise<void> {

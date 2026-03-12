@@ -40,11 +40,18 @@
       <view class="card">
         <view class="section-title">基本信息</view>
         <view class="row"><text class="label">型号</text><text class="value">{{ machine.model }}</text></view>
-        <view class="row"><text class="label">位置</text><text class="value">{{ machine.province }} {{ machine.city }} {{ machine.district || '' }} {{ machine.address }}</text></view>
+        <view class="row row-addr" @click="openMap">
+          <text class="label">位置</text>
+          <text class="value addr-link">{{ machine.province }} {{ machine.city }} {{ machine.district || '' }} {{ machine.address }}</text>
+          <uni-icons type="location" size="16" color="#4AB1F7" class="addr-icon" />
+        </view>
       </view>
       <view class="card">
         <view class="section-title">设备描述</view>
         <text class="desc">{{ machine.description || '暂无描述' }}</text>
+      </view>
+      <view class="card">
+        <CommentPanel refType="machine" :refId="machine.id" />
       </view>
       <view class="card" v-if="machine.user">
         <view class="section-title">机主</view>
@@ -67,8 +74,10 @@
 import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
+import CommentPanel from '@/components/CommentPanel.vue';
 
 export default {
+  components: { CommentPanel },
   data() {
     return {
       machine: {},
@@ -151,6 +160,21 @@ export default {
         }).catch(() => {});
       }
     },
+    openMap() {
+      const lat = this.machine.latitude != null ? Number(this.machine.latitude) : null;
+      const lng = this.machine.longitude != null ? Number(this.machine.longitude) : null;
+      const name = [this.machine.province, this.machine.city, this.machine.district, this.machine.address].filter(Boolean).join('');
+      if (lat != null && lng != null && !Number.isNaN(lat) && !Number.isNaN(lng)) {
+        uni.openLocation({
+          latitude: lat,
+          longitude: lng,
+          name: name || '位置',
+          address: name || '',
+        });
+      } else {
+        this.$tip && this.$tip.alert('暂无坐标，无法打开地图');
+      }
+    },
     contactOwner() {
       const phone = this.machine?.user?.phone;
       if (phone) uni.makePhoneCall({ phoneNumber: String(phone) });
@@ -189,6 +213,9 @@ export default {
 }
 .section-title { font-size: 14px; color: #999; margin-bottom: 8px; }
 .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+.row-addr { align-items: center; cursor: pointer; }
+.addr-link { color: #4AB1F7; }
+.addr-icon { flex-shrink: 0; margin-left: 4px; }
 .label { color: #666; }
 .value { color: #333; flex: 1; margin-left: 12px; text-align: right; }
 .desc { font-size: 14px; color: #666; line-height: 1.6; display: block; }

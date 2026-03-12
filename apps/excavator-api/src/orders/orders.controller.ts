@@ -44,8 +44,13 @@ export class OrdersController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateDemandDto): Promise<Order | null> {
-    return this.ordersService.update(id, dto);
+  update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateDemandDto,
+  ): Promise<Order | null> {
+    const userId = getRequiredUserId(req);
+    return this.ordersService.update(id, dto, userId);
   }
 
   @Delete(':id')

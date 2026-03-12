@@ -5,27 +5,23 @@
 				<uni-forms-item label="需求类型" name="type" required>
 					<uni-data-select v-model="form.type" :localdata="typeOptions" placeholder="请选择"></uni-data-select>
 				</uni-forms-item>
-				<uni-forms-item label="所需设备/机型" name="machineTypes" :required="form.type==1">
-					<uni-data-checkbox v-model="form.machineTypes" :localdata="machineTypeOptions"
-						multiple></uni-data-checkbox>
+				<uni-forms-item label="所需设备/机型" name="machineTypes" required>
+					<uni-data-checkbox v-model="form.machineTypes" :localdata="machineTypeOptionsFull" multiple
+						@change="onMachineTypesChange"></uni-data-checkbox>
 					<text class="tip">求租设备时多选所需类型，招聘机手时选可操作设备类型</text>
+					<view v-if="hasMachineTypeOther" class="mt-2">
+						<uni-easyinput v-model="form.machineTypeOther" placeholder="请输入其他设备/机型"></uni-easyinput>
+					</view>
 				</uni-forms-item>
 				<uni-forms-item label="施工地址" required>
 					<LocationPicker v-model="locationValue" />
 				</uni-forms-item>
 				<uni-forms-item label="需求时段" required>
-					<uni-datetime-picker
-						type="daterange"
-						v-model="demandDateRange"
-						range-separator="至"
-						start-placeholder="开始日期"
-						end-placeholder="结束日期"
-						:clear-icon="false"
-						:disabled="isLongTerm === Constants.YES"
-					/>
+					<uni-datetime-picker type="daterange" v-model="demandDateRange" range-separator="至"
+						start-placeholder="开始日期" end-placeholder="结束日期" :clear-icon="false"
+						@change="onDateRangeChange" />
 					<view class="checkbox-row">
-						<uni-data-checkbox v-model="isLongTerm"
-							:localdata="[{ text: '时间不限', value: Constants.YES }]"
+						<uni-data-checkbox v-model="isLongTerm" :localdata="[{ text: '时间不限', value: Constants.YES }]"
 							@change="onLongTermChange"></uni-data-checkbox>
 					</view>
 				</uni-forms-item>
@@ -80,6 +76,9 @@
 	import {
 		Constants
 	} from '@excavator/types';
+	import {
+		DemandDateUnlimited
+	} from '@excavator/utils';
 
 	export default {
 		components: {
@@ -92,7 +91,6 @@
 				Constants,
 				demandId: '',
 				isEdit: false,
-				demandDateRange: [],
 				isLongTerm: Constants.NO,
 				locationValue: {
 					province: '',
@@ -104,6 +102,7 @@
 					userId: '',
 					type: '1',
 					machineTypes: [],
+					machineTypeOther: '',
 					province: '',
 					city: '',
 					district: '',
@@ -118,7 +117,9 @@
 					isUrgent: 'N'
 				},
 				typeOptions: useDictOne('demand_type'),
-				machineTypeOptions: useDictOne('machine_type'),
+				machineTypeOptions: useDictOne('machine_types'),
+				// 补全设备类型：与后端 init.sql 一致，避免接口返回不全
+				defaultMachineTypeOptions: [],
 				sys_yes_no: useDictOne('sys_yes_no'),
 				rules: {
 					type: {
@@ -179,28 +180,44 @@
 			};
 		},
 		computed: {
+			demandDateRange: {
+				get() {
+					if (this.isLongTerm === Constants.YES) {
+						return []
+					}
+					return [this.form.startDate, this.form.endDate].filter(Boolean);
+				},
+				set(arr) {
+					const a = Array.isArray(arr) ? arr : [];
+					this.form.startDate = (a[0]);
+					this.form.endDate = (a[1]);
+				}
+			},
 			userInfo() {
 				return (appStore().state && appStore().state.userInfo) || {};
 			},
+			// 合并接口数据与默认项，保证选项完整
+			machineTypeOptionsFull() {
+				const fromApi = Array.isArray(this.machineTypeOptions) ? this.machineTypeOptions : [];
+				const values = new Set(fromApi.map((o) => o.value));
+				const merged = fromApi.slice();
+				for (const opt of this.defaultMachineTypeOptions) {
+					if (!values.has(opt.value)) {
+						merged.push({
+							text: opt.text,
+							value: opt.value
+						});
+						values.add(opt.value);
+					}
+				}
+				return merged.sort((a, b) => Number(a.value) - Number(b.value));
+			},
+			hasMachineTypeOther() {
+				const arr = Array.isArray(this.form.machineTypes) ? this.form.machineTypes : [];
+				return arr.includes('8');
+			},
 		},
 		watch: {
-			demandDateRange: {
-				handler(arr) {
-					const a = Array.isArray(arr) ? arr : [];
-					const toDateStr = (v) => {
-						if (!v) return '';
-						const d = new Date(v);
-						if (Number.isNaN(d.getTime())) return '';
-						const y = d.getFullYear();
-						const m = String(d.getMonth() + 1).padStart(2, '0');
-						const day = String(d.getDate()).padStart(2, '0');
-						return `${y}-${m}-${day}`;
-					};
-					this.form.startDate = toDateStr(a[0]);
-					this.form.endDate = toDateStr(a[1]);
-				},
-				deep: true,
-			},
 			locationValue: {
 				deep: true,
 				handler(v) {
@@ -209,6 +226,8 @@
 						this.form.city = v.city || '';
 						this.form.district = v.district || '';
 						this.form.address = v.address || '';
+						this.form.latitude = v.latitude;
+						this.form.longitude = v.longitude;
 					}
 				},
 			},
@@ -224,22 +243,23 @@
 			}
 		},
 		methods: {
-			onLongTermChange(val) {
-				if (val === Constants.YES) {
-					const today = new Date();
-					const y = today.getFullYear();
-					const m = String(today.getMonth() + 1).padStart(2, '0');
-					const d = String(today.getDate()).padStart(2, '0');
-					const start = `${y}-${m}-${d}`;
-					const end = '2099-12-31';
-					// 同时更新表单字段和日期选择器绑定值，避免 watcher 覆盖
-					this.form.startDate = start;
-					this.form.endDate = end;
-					this.demandDateRange = [start, end];
+			onMachineTypesChange() {
+				// 取消「其他」时清空其他输入
+				if (!this.hasMachineTypeOther) this.form.machineTypeOther = '';
+			},
+			onDateRangeChange() {
+				// 使用日期框选择时取消「时间不限」，保证互斥
+				this.isLongTerm = Constants.NO;
+			},
+			onLongTermChange({
+				detail: {
+					value
+				}
+			}) {
+				if (value === Constants.YES) {
+					this.demandDateRange = [DemandDateUnlimited.START, DemandDateUnlimited.END];
 				} else {
-					this.form.startDate = '';
-					this.form.endDate = '';
-					this.demandDateRange = [];
+					this.demandDateRange = []
 				}
 			},
 			loadDetail(id) {
@@ -260,7 +280,9 @@
 						this.form.endDate = data.endDate ? String(data.endDate).slice(0, 10) : '';
 						this.form.budgetMin = data.budgetMin != null ? String(data.budgetMin) : '';
 						this.form.budgetMax = data.budgetMax != null ? String(data.budgetMax) : '';
-						this.form.description = data.description || '';
+						let desc = data.description || '';
+						this.form.machineTypeOther = data.machineTypeOther;
+						this.form.description = desc;
 						this.form.images = data.images || [];
 						this.form.video = data.video || '';
 						this.form.isUrgent = data.isUrgent || 'N';
@@ -268,11 +290,17 @@
 							this.form.startDate || '',
 							this.form.endDate || '',
 						];
+						this.isLongTerm = (this.form.startDate === DemandDateUnlimited.START && this.form.endDate ===
+								DemandDateUnlimited.END) ?
+							Constants.YES :
+							Constants.NO;
 						this.locationValue = {
 							province: this.form.province,
 							city: this.form.city,
 							district: this.form.district,
 							address: this.form.address,
+							longitude: this.form.longitude,
+							latitude: this.form.latitude,
 						};
 					})
 					.finally(() => {
@@ -297,6 +325,10 @@
 						this.$tip.alert('请选择所需设备/机型');
 						return;
 					}
+					if (machineTypes.includes('8') && !(this.form.machineTypeOther || '').trim()) {
+						this.$tip.alert('请填写其他设备/机型');
+						return;
+					}
 					if (!this.form.images || this.form.images.length === 0) {
 						this.$tip.alert('请至少上传1张图片');
 						return;
@@ -305,10 +337,13 @@
 						userId: this.form.userId,
 						type: String(this.form.type),
 						machineTypes,
+						machineTypeOther: (this.form.machineTypeOther || '').trim() || undefined,
 						province: this.form.province,
 						city: this.form.city,
 						district: this.form.district || '',
 						address: this.form.address,
+						latitude: this.form.latitude,
+						longitude: this.form.longitude,
 						startDate: this.form.startDate,
 						endDate: this.form.endDate,
 						budgetMin: this.form.budgetMin ? Number(this.form.budgetMin) : undefined,
@@ -372,6 +407,10 @@
 	}
 
 	.checkbox-row {
+		margin-top: 8px;
+	}
+
+	.mt-2 {
 		margin-top: 8px;
 	}
 

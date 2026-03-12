@@ -62,10 +62,12 @@ export class MachinesController {
 
   @Put(':id')
   update(
+    @Request() req: any,
     @Param('id') id: string,
     @Body() updateMachineDto: UpdateMachineDto,
   ): Promise<Machine | null> {
-    return this.machinesService.update(id, updateMachineDto);
+    const userId = getRequiredUserId(req);
+    return this.machinesService.update(id, updateMachineDto, userId);
   }
 
   @Delete(':id')

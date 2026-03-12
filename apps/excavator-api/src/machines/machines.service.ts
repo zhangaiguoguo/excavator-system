@@ -168,6 +168,7 @@ export class MachinesService {
     await this.usersService.ensureUserCanPublish(createMachineDto.userId);
     const images = normalizeFileItems(createMachineDto.images);
     const video = normalizeFileItem(createMachineDto.video);
+    const userIdStr = String(createMachineDto.userId ?? '');
     const payload = {
       ...createMachineDto,
       images,
@@ -180,6 +181,8 @@ export class MachinesService {
         : undefined,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       isLongTerm: createMachineDto.isLongTerm ?? Constants.NO,
+      createBy: userIdStr,
+      updateBy: userIdStr,
     };
     const machine = this.machinesRepository.create(payload);
     return this.machinesRepository.save(machine);
@@ -188,6 +191,7 @@ export class MachinesService {
   async update(
     id: string,
     updateMachineDto: UpdateMachineDto,
+    updateByUserId?: string,
   ): Promise<Machine | null> {
     const payload = { ...updateMachineDto } as Record<string, unknown>;
     if (payload.rentStartDate)
@@ -202,6 +206,8 @@ export class MachinesService {
       payload.video = normalizeFileItem(payload.video as string | FileItemDto);
     payload.rentStartDate = payload.rentStartDate || null;
     payload.rentEndDate = payload.rentEndDate || null;
+    if (updateByUserId !== undefined)
+      payload.updateBy = String(updateByUserId);
     await this.machinesRepository.update(id, payload);
     return this.machinesRepository.findOne({
       where: { id },

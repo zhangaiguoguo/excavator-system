@@ -44,10 +44,7 @@ export class NotificationsService {
   }
 
   async markRead(id: string, userId: string): Promise<void> {
-    await this.repo.update(
-      { id, userId },
-      { isRead: 1 },
-    );
+    await this.repo.update({ id, userId }, { isRead: 1 });
   }
 
   async markAllRead(userId: string): Promise<void> {

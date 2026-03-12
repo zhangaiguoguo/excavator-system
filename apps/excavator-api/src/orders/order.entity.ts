@@ -19,6 +19,15 @@ export class Order {
   @Column({ name: 'machine_types', type: 'json' })
   machineTypes: string[];
 
+  /** 选「其他」设备时填写的说明 */
+  @Column({
+    name: 'machine_type_other',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  machineTypeOther: string | null;
+
   @Column({ length: 50 })
   province: string;
 
@@ -30,6 +39,12 @@ export class Order {
 
   @Column({ length: 200 })
   address: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number | null;
 
   @Column({ name: 'start_date', type: 'date' })
   startDate: Date;

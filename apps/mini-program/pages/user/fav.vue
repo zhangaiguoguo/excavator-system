@@ -49,6 +49,7 @@
           >
             <view class="card-body">
               <text class="card-tag">{{ item.type === '2' ? '招聘机手' : '求租设备' }}</text>
+              <text class="card-equipment">所需设备：{{ demandEquipmentText(item) }}</text>
               <text class="card-desc">{{ (item.description || '').slice(0, 50) }}{{ (item.description || '').length > 50 ? '...' : '' }}</text>
               <text class="card-meta">{{ item.province }}{{ item.city }}</text>
               <view class="card-actions">
@@ -90,6 +91,7 @@
 import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
+import { formatDemandMachineTypes } from '@/common/util/util.js';
 
 export default {
   data() {
@@ -106,6 +108,7 @@ export default {
       favJobs: [],
       loading: false,
       work_hours_unit: useDictOne('work_hours_unit'),
+      machine_type: useDictOne('machine_type'),
     };
   },
   computed: {
@@ -127,6 +130,9 @@ export default {
   },
   methods: {
     getFileViewUrl,
+    demandEquipmentText(item) {
+      return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+    },
     rentUnitLabel(v) {
       const arr = this.work_hours_unit?.value ?? this.work_hours_unit ?? [];
       const o = arr.find(d => d.value === v);
@@ -239,6 +245,7 @@ export default {
 }
 .card-title { font-size: 16px; font-weight: 600; color: #1a1a1a; display: block; margin-bottom: 4px; }
 .card-tag { font-size: 12px; color: #007aff; display: block; margin-bottom: 4px; }
+.card-equipment { font-size: 12px; color: #666; display: block; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-desc { font-size: 14px; color: #333; display: block; margin-bottom: 4px; }
 .card-meta { font-size: 12px; color: #999; display: block; margin-bottom: 8px; }
 .card-actions {

@@ -44,7 +44,7 @@ export class RecordsService {
     return {
       income,
       expense,
-      profit: income - expense
+      profit: income - expense,
     };
   }
 }

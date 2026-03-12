@@ -158,6 +158,27 @@ export function transformDictValues(values, options, props) {
     return join(split(values).map((value) => transformDictValue(value, options, props)), dunhaoRef)
 }
 
+/** 需求日期展示：若为时间不限(2000-2999)则返回「日期不限」，否则返回起止日期文案 */
+export function formatDemandDateRange(startDate, endDate, unlimitedStart, unlimitedEnd) {
+  const start = startDate ? String(startDate).slice(0, 10) : '';
+  const end = endDate ? String(endDate).slice(0, 10) : '';
+  if (unlimitedStart && unlimitedEnd && start === unlimitedStart && end === unlimitedEnd) return '日期不限';
+  if (!start && !end) return '';
+  return (start || '') + (start && end ? ' 至 ' : '') + (end || '');
+}
+
+/** 需求所需设备/机型展示文案：machineTypes 转成中文并拼接「其他」说明，供列表/详情等统一使用 */
+export function formatDemandMachineTypes(machineTypes, machineTypeOther, options) {
+    const arr = Array.isArray(machineTypes) ? machineTypes : []
+    const opts = toValue(options) || []
+    const parts = arr.map((v) => {
+        if (String(v) === '8') return (machineTypeOther && String(machineTypeOther).trim()) ? '其他：' + String(machineTypeOther).trim() : '其他'
+        const row = opts.find((item) => String(item.value) === String(v))
+        return row ? (row.text || row.label || v) : v
+    })
+    return parts.filter(Boolean).join('、') || '暂无'
+}
+
 export const dunhaoRef = "、"
 
 export function filterArrayItem(target) {

@@ -9,6 +9,7 @@ export class CreateDemandDto {
   userId: string;
   type: string; // '1' 求租设备 | '2' 招聘机手
   machineTypes: string[]; // 所需机型/设备类型
+  machineTypeOther?: string; // 选「其他」时填写的设备说明
   province: string;
   city: string;
   district: string;

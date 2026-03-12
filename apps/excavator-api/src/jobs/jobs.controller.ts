@@ -22,7 +22,17 @@ export class JobsController {
     @Query('userId') userId?: string,
     @Query('sort') sort?: string,
   ): Promise<Job[]> {
-    return this.jobsService.findAll({ experience, equipmentType, province, city, district, priceMin, priceMax, userId, sort });
+    return this.jobsService.findAll({
+      experience,
+      equipmentType,
+      province,
+      city,
+      district,
+      priceMin,
+      priceMax,
+      userId,
+      sort,
+    });
   }
 
   @Get(':id')
@@ -37,8 +47,13 @@ export class JobsController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateJobDto): Promise<Job | null> {
-    return this.jobsService.update(id, dto);
+  update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateJobDto,
+  ): Promise<Job | null> {
+    const userId = getRequiredUserId(req);
+    return this.jobsService.update(id, dto, userId);
   }
 
   @Delete(':id')

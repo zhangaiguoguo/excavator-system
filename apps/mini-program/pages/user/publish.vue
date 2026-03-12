@@ -36,10 +36,10 @@
 			<view v-for="item in myDemands" :key="item.id" class="card demand-card" @click="goDemandDetail(item.id)">
 				<view class="card-body">
 					<text class="card-tag">{{ item.type === '2' ? '招聘机手' : '求租设备' }}</text>
+					<text class="card-equipment">所需设备：{{ demandEquipmentText(item) }}</text>
 					<text
 						class="card-desc">{{ (item.description || '').slice(0, 40) }}{{ (item.description || '').length > 40 ? '...' : '' }}</text>
-					<text class="card-meta">{{ item.province }}{{ item.city }} · {{ dateStr(item.startDate) }} 至
-						{{ dateStr(item.endDate) }}</text>
+					<text class="card-meta">{{ item.province }}{{ item.city }} · {{ demandDateText(item) }}</text>
 					<view class="card-actions justify-end">
 						<button class="btn-sm m-0" @click.stop="goDemandEdit(item.id)">编辑</button>
 						<button class="btn-sm danger m-0 ml-2" @click.stop="removeDemand(item)">删除</button>
@@ -86,8 +86,11 @@
 		tryRefreshList
 	} from '@/common/util/listRefresh.js';
 	import {
-		transformDictValue
+		transformDictValue,
+		formatDemandMachineTypes,
+		formatDemandDateRange
 	} from "@/common/util/util"
+	import { DemandDateUnlimited } from '@excavator/utils';
 
 	export default {
 		data() {
@@ -231,6 +234,12 @@
 					url: '/pages/demand/add?id=' + id
 				});
 			},
+			demandEquipmentText(item) {
+				return formatDemandMachineTypes(item.machineTypes, item.machineTypeOther, this.machine_type);
+			},
+			demandDateText(item) {
+				return formatDemandDateRange(item.startDate, item.endDate, DemandDateUnlimited.START, DemandDateUnlimited.END);
+			},
 			goDemandAdd() {
 				uni.navigateTo({
 					url: '/pages/demand/add'
@@ -332,6 +341,16 @@
 		font-size: 12px;
 		color: #007aff;
 		margin-bottom: 4px;
+	}
+
+	.card-equipment {
+		font-size: 12px;
+		color: #666;
+		margin-bottom: 4px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		display: block;
 	}
 
 	.card-desc {
