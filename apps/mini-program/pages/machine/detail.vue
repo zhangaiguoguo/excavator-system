@@ -211,7 +211,8 @@ export default {
     },
     goChat() {
       if (!this.machine || !this.machine.id) return;
-      const title = '与机主聊天';
+      const otherName = (this.machine.user && this.machine.user.nickname) || '机主';
+      const title = otherName;
       let url = '/pages/chat/index?refType=machine&refId=' + this.machine.id + '&title=' + encodeURIComponent(title);
       if (this.machine.userId) url += '&otherUserId=' + this.machine.userId;
       uni.navigateTo({ url });

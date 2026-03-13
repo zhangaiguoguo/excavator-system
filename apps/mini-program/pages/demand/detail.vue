@@ -235,7 +235,8 @@ export default {
     },
     goChat() {
       if (!this.demand || !this.demand.id) return;
-      const title = this.demand.type === '2' ? '与招聘方聊天' : '与需求方聊天';
+      const otherName = (this.demand.user && this.demand.user.nickname) || (this.demand.type === '2' ? '招聘方' : '需求方');
+      const title = otherName;
       let url = '/pages/chat/index?refType=demand&refId=' + this.demand.id + '&title=' + encodeURIComponent(title);
       if (this.demand.userId) url += '&otherUserId=' + this.demand.userId;
       uni.navigateTo({ url });

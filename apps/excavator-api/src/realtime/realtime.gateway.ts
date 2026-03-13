@@ -247,7 +247,7 @@ export class RealtimeGateway
       await this.notificationsService.create({
         userId: targetUserId,
         type: 'chat_message',
-        title: fromName ? `${fromName} 的聊天消息` : '新的聊天消息',
+        title: fromName || '聊天',
         content: preview,
         refType,
         refId,
