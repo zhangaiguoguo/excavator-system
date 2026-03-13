@@ -108,7 +108,7 @@ class ApiServer {
 		return http.delete('/demands/' + id);
 	}
 
-	// 合同（接单后生成，关联需求+设备）
+	// 订单（接单后生成，关联需求+设备，MVP 阶段作为意向单）
 	getContracts(params ?: { userId ?: string; status ?: number; page ?: number; pageSize ?: number }) {
 		return http.get('/contracts', { params: params || {} });
 	}
@@ -118,8 +118,14 @@ class ApiServer {
 	createContract(data : any) {
 		return http.post('/contracts', data);
 	}
-	signContract(id : string, body : { userId : string; role : 'lessor' | 'lessee' }) {
-		return http.put('/contracts/' + id + '/sign', body);
+	confirmContract(id : string) {
+		return http.put('/contracts/' + id + '/confirm');
+	}
+	cancelContract(id : string, reason: string) {
+		return http.put('/contracts/' + id + '/cancel', { reason });
+	}
+	completeContract(id : string) {
+		return http.put('/contracts/' + id + '/complete');
 	}
 
 	// 揽活模块 PRD 4.2.2
@@ -177,6 +183,11 @@ class ApiServer {
 	}
 	markAllNotificationsRead() {
 		return http.put('/notifications/read-all');
+	}
+
+	// 聊天历史
+	getChatMessages(params: { refType: string; refId: string | number; otherUserId?: string }) {
+		return http.get('/chat/messages', { params });
 	}
 }
 

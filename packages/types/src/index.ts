@@ -68,3 +68,9 @@ export enum Constants {
     YES = "Y",
     NO = "N",
 }
+
+// 订单/服务类型（设备租赁 / 驾驶员找活等）
+export enum ServiceType {
+    MACHINE_RENT = "machine_rent",
+    DRIVER_JOB = "driver_job",
+}

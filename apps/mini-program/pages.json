@@ -130,12 +130,13 @@
 				"enablePullDownRefresh": true
 			}
 		},
-		{
-			"path": "pages/chat/index",
-			"style": {
-				"navigationBarTitleText": "实时聊天"
-			}
-		}
+    {
+      "path": "pages/chat/index",
+      "style": {
+        "navigationBarTitleText": "实时聊天",
+        "navigationStyle": "custom"
+      }
+    }
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",

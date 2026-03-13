@@ -16,10 +16,10 @@
         <uni-forms-item label="结束日期" name="endDate" required>
           <uni-datetime-picker type="date" v-model="formData.endDate"></uni-datetime-picker>
         </uni-forms-item>
-        <uni-forms-item label="租金(元)" name="amount" required>
-          <uni-easyinput type="number" v-model="formData.amount" placeholder="请输入总租金"></uni-easyinput>
+        <uni-forms-item label="预估总价(元)" name="amount" required>
+          <uni-easyinput type="number" v-model="formData.amount" placeholder="请输入预估总价，仅供参考"></uni-easyinput>
         </uni-forms-item>
-        <button type="primary" class="submit-btn" @click="submit">生成合同（接单）</button>
+        <button type="primary" class="submit-btn" @click="submit">生成订单（确认接单）</button>
       </uni-forms>
     </view>
   </view>
@@ -28,6 +28,7 @@
 <script>
 import apiService from '@/api/api';
 import appStore from '@/store/app';
+import { ServiceType } from '@excavator/types';
 
 export default {
   data() {
@@ -44,6 +45,7 @@ export default {
       rules: {
         machineId: { rules: [{ required: true, errorMessage: '请选择设备' }] },
         startDate: { rules: [{ required: true, errorMessage: '请选择开始日期' }] },
+        endDate: { rules: [{ required: true, errorMessage: '请选择结束日期' }] },
         amount: { rules: [{ required: true, errorMessage: '请输入金额' }] },
       },
     };
@@ -85,16 +87,24 @@ export default {
         const payload = {
           machineId: this.formData.machineId,
           demandId: this.demandId || undefined,
+          serviceStartTime: this.formData.startDate || undefined,
+          serviceEndTime: this.formData.endDate || undefined,
+          totalPrice: this.formData.amount ? Number(this.formData.amount) : undefined,
           lessorId: userId,
           lesseeId: lesseeId || userId,
-          templateId: '1',
+          serviceType: ServiceType.MACHINE_RENT,
+          resourceId: this.formData.machineId,
+          resourceInfo: {
+            model: this.demand.machineModel || this.demand.model || '',
+            brand: this.demand.brand || '',
+          },
         };
         this.$tip.loading('生成中...');
         apiService.createContract(payload).then((res) => {
           const data = res?.data ?? res;
           const id = data?.id || data?.id;
           this.$tip.loaded();
-          this.$tip.success('合同已生成，请到合同详情签署');
+          this.$tip.success('订单已生成，等待对方确认');
           setTimeout(() => {
             uni.redirectTo({ url: '/pages/contract/detail?id=' + (id || '') });
           }, 1500);

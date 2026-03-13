@@ -5,19 +5,25 @@ import {
   ConnectedSocket,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets/interfaces';
+import {
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+} from '@nestjs/websockets/interfaces';
 import type { Server, WebSocket } from 'ws';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../orders/order.entity';
 import { Machine } from '../machines/machine.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ChatMessage } from './chat-message.entity';
 
-type RefType = 'machine' | 'demand' | 'contract';
+type RefType = 'machine' | 'demand' | 'contract' | 'order';
 type SubscriptionKey = `${RefType}:${string}`;
 
 @WebSocketGateway({ path: '/ws' })
-export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -30,6 +36,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     @InjectRepository(Machine)
     private readonly machinesRepo: Repository<Machine>,
     private readonly notificationsService: NotificationsService,
+    @InjectRepository(ChatMessage)
+    private readonly chatRepo: Repository<ChatMessage>,
   ) {}
 
   handleConnection(client: WebSocket) {
@@ -71,7 +79,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
     const key = `${refType}:${String(refId)}` as SubscriptionKey;
 
-    if (!this.clientToKeys.has(client)) this.clientToKeys.set(client, new Set());
+    if (!this.clientToKeys.has(client))
+      this.clientToKeys.set(client, new Set());
     this.clientToKeys.get(client)!.add(key);
 
     if (!this.keyToClients.has(key)) this.keyToClients.set(key, new Set());
@@ -90,12 +99,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     if (!refType || !refId) {
       return { event: 'error', data: { message: 'refType/refId required' } };
     }
-    const key = `${refType}:${String(refId)}` as SubscriptionKey;
-    this.clientToKeys.get(client)?.delete(key);
-    const set = this.keyToClients.get(key);
+    const key = `${refType}:${String(refId)}`;
+    this.clientToKeys.get(client)?.delete(key as SubscriptionKey);
+    const set = this.keyToClients.get(key as SubscriptionKey);
     if (set) {
       set.delete(client);
-      if (set.size === 0) this.keyToClients.delete(key);
+      if (set.size === 0) this.keyToClients.delete(key as SubscriptionKey);
     }
     return { event: 'unsubscribed', data: { refType, refId: String(refId) } };
   }
@@ -117,7 +126,10 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     const refId = body?.refId;
     const text = (body?.text || '').trim();
     if (!refType || !refId || !text) {
-      return { event: 'error', data: { message: 'refType/refId/text required' } };
+      return {
+        event: 'error',
+        data: { message: 'refType/refId/text required' },
+      };
     }
     if (refType !== 'machine' && refType !== 'demand') {
       return { event: 'error', data: { message: 'refType not supported' } };
@@ -126,6 +138,17 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     const fromName = body.fromName || '用户';
     const toUserId = body.toUserId ? String(body.toUserId) : undefined;
     const ts = new Date().toISOString();
+
+    // 写入聊天消息表，便于后续拉取历史
+    void this.chatRepo.save(
+      this.chatRepo.create({
+        refType,
+        refId: String(refId),
+        fromUserId: fromUserId || '',
+        toUserId: toUserId || null,
+        content: text,
+      }),
+    );
 
     // 推送给在线订阅者
     const key = `${refType}:${String(refId)}` as SubscriptionKey;
@@ -145,19 +168,28 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       clients.forEach((c) => {
         try {
           c.send(payload);
-        } catch {}
+        } catch {
+          /* empty */
+        }
       });
     }
 
     // 生成消息通知，对方登录后可在消息通知里看到
-    void this.createChatNotification(refType, String(refId), text, fromUserId, fromName, toUserId);
+    void this.createChatNotification(
+      refType,
+      String(refId),
+      text,
+      fromUserId,
+      fromName,
+      toUserId,
+    );
 
     return { event: 'sent', data: { ok: true } };
   }
 
   notifyContentUpdated(refType: RefType, refId: string) {
-    const key = `${refType}:${String(refId)}` as SubscriptionKey;
-    const clients = this.keyToClients.get(key);
+    const key = `${refType}:${String(refId)}`;
+    const clients = this.keyToClients.get(key as SubscriptionKey);
     if (!clients || clients.size === 0) return;
     const payload = JSON.stringify({
       event: 'content_updated',
@@ -170,7 +202,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     clients.forEach((c) => {
       try {
         c.send(payload);
-      } catch {}
+      } catch {
+        /* empty */
+      }
     });
   }
 
@@ -190,13 +224,22 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         targetUserId = toUserId;
       } else {
         if (refType === 'demand') {
-          const demand = await this.ordersRepo.findOne({ where: { id: refId } });
+          const demand = await this.ordersRepo.findOne({
+            where: { id: refId },
+          });
           if (demand) targetUserId = String(demand.userId);
         } else if (refType === 'machine') {
-          const machine = await this.machinesRepo.findOne({ where: { id: refId } });
+          const machine = await this.machinesRepo.findOne({
+            where: { id: refId },
+          });
           if (machine) targetUserId = String(machine.userId);
         }
-        if (fromUserId && targetUserId && String(targetUserId) === String(fromUserId)) return;
+        if (
+          fromUserId &&
+          targetUserId &&
+          String(targetUserId) === String(fromUserId)
+        )
+          return;
       }
       if (!targetUserId) return;
 
@@ -215,4 +258,3 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
   }
 }
-

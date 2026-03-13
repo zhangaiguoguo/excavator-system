@@ -7,32 +7,62 @@
           <text class="contract-no">{{ contract.contractNo }}</text>
           <text class="status-tag">{{ getStatusText(contract.status) }}</text>
         </view>
-        <view class="row"><text class="label">甲方（出租方）</text><text class="value">{{ lessorName }}</text></view>
-        <view class="row"><text class="label">乙方（承租方）</text><text class="value">{{ lesseeName }}</text></view>
-        <view class="row"><text class="label">设备</text><text class="value">{{ machineName }}</text></view>
-        <view class="row"><text class="label">租期</text><text class="value">{{ dateStr(contract.createTime) }} 起</text></view>
+        <view class="row"><text class="label">供应方</text><text class="value">{{ lessorName }}</text></view>
+        <view class="row"><text class="label">需求方</text><text class="value">{{ lesseeName }}</text></view>
+        <view class="row"><text class="label">服务内容</text><text class="value">{{ serviceName }}</text></view>
+        <view class="row">
+          <text class="label">服务时间</text>
+          <text class="value">
+            {{ dateStr(contract.serviceStartTime) }}
+            <text v-if="contract.serviceEndTime"> 至 {{ dateStr(contract.serviceEndTime) }}</text>
+          </text>
+        </view>
+        <view class="row" v-if="contract.totalPrice != null">
+          <text class="label">预估总价</text>
+          <text class="value">{{ Number(contract.totalPrice).toFixed(2) }} 元</text>
+        </view>
+        <view class="row" v-if="contract.priceUnit">
+          <text class="label">价格单位</text>
+          <text class="value">{{ contract.priceUnit }}</text>
+        </view>
+        <view class="row" v-if="contract.serviceLocation">
+          <text class="label">服务地点</text>
+          <text class="value">{{ contract.serviceLocation }}</text>
+        </view>
+        <view class="row" v-if="contract.demandRemark">
+          <text class="label">备注</text>
+          <text class="value">{{ contract.demandRemark }}</text>
+        </view>
+        <view class="row" v-if="contract.cancelReason">
+          <text class="label">取消原因</text>
+          <text class="value">{{ contract.cancelReason }}</text>
+        </view>
       </view>
       <view class="card">
-        <view class="section-title">合同条款预览</view>
+        <view class="section-title">订单说明</view>
         <view class="terms">
-          <text>第一条 租赁设备及用途</text>
-          <text>第二条 租赁期限与租金</text>
-          <text>第三条 双方权利与义务</text>
+          <text>本订单仅作为供需双方的意向记录，不涉及在线支付和法律担保。</text>
+          <text>请双方通过电话或微信进一步确认具体细节，并线下完成结算。</text>
         </view>
       </view>
       <view class="footer-bar">
-        <button type="default" class="btn" @click="downloadPdf">下载PDF</button>
         <button
-          v-if="contract.status === 1"
+          v-if="contract.status === 0 && isLessor"
           type="primary"
           class="btn"
-          @click="signContract"
-        >签署合同</button>
+          @click="handleConfirm"
+        >确认接单</button>
         <button
-          v-else-if="contract.status === 2 && contract.demandId && !demandCompleted"
+          v-if="(contract.status === 0 || contract.status === 1) && (isLessor || isLessee)"
+          type="default"
+          class="btn"
+          @click="handleCancel"
+        >取消订单</button>
+        <button
+          v-if="contract.status === 1 && (isLessor || isLessee)"
           type="primary"
           class="btn btn-complete"
-          @click="confirmComplete"
+          @click="handleComplete"
         >确认完成</button>
       </view>
     </template>
@@ -51,6 +81,8 @@ export default {
       contract: {},
       loading: true,
       demandCompleted: false,
+      isLessor: false,
+      isLessee: false,
     };
   },
   computed: {
@@ -62,9 +94,10 @@ export default {
       const u = this.contract.lessee;
       return (u && (u.nickname || u.phone)) || '—';
     },
-    machineName() {
+    serviceName() {
+      const info = this.contract.resourceInfo || {};
       const m = this.contract.machine;
-      return (m && (m.model || m.brand)) || '—';
+      return info.model || (m && (m.model || m.brand)) || '—';
     },
   },
   onLoad(options) {
@@ -74,11 +107,14 @@ export default {
   methods: {
     fetchDetail(id) {
       this.loading = true;
+      const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
       apiService
         .getContract(id)
         .then((res) => {
           const data = res?.data ?? res;
           this.contract = data || {};
+          this.isLessor = userId && String(this.contract.lessorId) === String(userId);
+          this.isLessee = userId && String(this.contract.lesseeId) === String(userId);
         })
         .catch(() => { this.contract = {}; })
         .finally(() => { this.loading = false; });
@@ -90,44 +126,53 @@ export default {
       return '';
     },
     getStatusText(status) {
-      const map = { 0: '草稿', 1: '待签署', 2: '已生效', 3: '已过期', 4: '已终止' };
+      const map = { 0: '待确认', 1: '待服务', 2: '已完成', 3: '已取消' };
       return map[status] ?? '未知';
     },
-    signContract() {
-      this.$tip.confirm('签署即代表您同意合同所有条款', true, {}, '确认签署').then(() => {
-        const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
-        if (!userId) {
-          this.$tip.alert('请先登录');
-          return;
-        }
-        const role = String(this.contract.lessorId) === String(userId) ? 'lessor' : 'lessee';
-        this.$tip.loading('签署中...');
-        apiService.signContract(this.contract.id, { userId, role }).then(() => {
-          this.$tip.loaded();
-          this.contract.status = 2;
-          this.$tip.success('签署成功');
-        }).catch((err) => {
-          this.$tip.loaded();
-          this.$tip.alert(err?.message || '签署失败');
-        });
-      }).catch(() => {});
-    },
-    confirmComplete() {
-      if (!this.contract.demandId) return;
-      this.$tip.confirm('确认已将本单完成？完成后需求方会收到通知。', true, {}, '确认完成').then(() => {
+    // 供应方确认订单
+    handleConfirm() {
+      if (!this.isLessor) return;
+      this.$tip.confirm('确认接单后，订单将进入待服务状态', true, {}, '确认接单').then(() => {
         this.$tip.loading('提交中...');
-        apiService.updateDemand(this.contract.demandId, { status: '2' }).then(() => {
+        apiService.confirmContract(this.contract.id).then(() => {
           this.$tip.loaded();
-          this.demandCompleted = true;
-          this.$tip.success('已标记完成，对方将收到通知');
+          this.contract.status = 1;
+          this.$tip.success('已确认接单');
         }).catch((err) => {
           this.$tip.loaded();
           this.$tip.alert(err?.message || '操作失败');
         });
       }).catch(() => {});
     },
-    downloadPdf() {
-      this.$tip.alert('下载功能开发中');
+    // 任一方取消订单
+    handleCancel() {
+      this.$tip.prompt('请输入取消原因', '取消订单').then((reason) => {
+        if (!reason) return;
+        this.$tip.loading('提交中...');
+        apiService.cancelContract(this.contract.id, reason).then(() => {
+          this.$tip.loaded();
+          this.contract.status = 3;
+          this.contract.cancelReason = reason;
+          this.$tip.success('已取消订单');
+        }).catch((err) => {
+          this.$tip.loaded();
+          this.$tip.alert(err?.message || '操作失败');
+        });
+      }).catch(() => {});
+    },
+    // 任一方确认完成
+    handleComplete() {
+      this.$tip.confirm('确认已完成本次服务？', true, {}, '确认完成').then(() => {
+        this.$tip.loading('提交中...');
+        apiService.completeContract(this.contract.id).then(() => {
+          this.$tip.loaded();
+          this.contract.status = 2;
+          this.$tip.success('已标记完成');
+        }).catch((err) => {
+          this.$tip.loaded();
+          this.$tip.alert(err?.message || '操作失败');
+        });
+      }).catch(() => {});
     },
   },
 };

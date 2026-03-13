@@ -1,8 +1,7 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
   Param,
   Put,
   Query,
@@ -41,29 +40,28 @@ export class ContractsController {
     return this.contractsService.findOne(id);
   }
 
-  @Post()
-  create(
-    @Request() req: any,
-    @Body() contract: Partial<Contract>,
-  ): Promise<Contract> {
+  /** 供应方确认预约：待确认 -> 待服务 */
+  @Put(':id/confirm')
+  confirm(@Request() req: any, @Param('id') id: string): Promise<Contract> {
     const userId = getRequiredUserId(req);
-    return this.contractsService.create({
-      ...contract,
-      createBy: userId,
-    });
+    return this.contractsService.confirm(id, userId);
   }
 
-  @Put(':id/sign')
-  sign(
+  /** 任一方取消订单（需填写原因） */
+  @Put(':id/cancel')
+  cancel(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { role: 'lessor' | 'lessee' },
+    @Body() body: { reason: string },
   ): Promise<Contract> {
     const userId = getRequiredUserId(req);
-    return this.contractsService.sign(
-      id,
-      userId,
-      body.role,
-    ) as Promise<Contract>;
+    return this.contractsService.cancel(id, userId, body.reason);
+  }
+
+  /** 任一方确认完成：待服务 -> 已完成 */
+  @Put(':id/complete')
+  complete(@Request() req: any, @Param('id') id: string): Promise<Contract> {
+    const userId = getRequiredUserId(req);
+    return this.contractsService.complete(id, userId);
   }
 }

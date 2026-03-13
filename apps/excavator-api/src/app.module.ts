@@ -18,6 +18,7 @@ import { Order } from './orders/order.entity';
 import { Job } from './jobs/job.entity';
 import { Favorite } from './favorites/favorite.entity';
 import { Notification } from './notifications/notification.entity';
+import { ChatMessage } from './realtime/chat-message.entity';
 import { DictModule } from './system/dict/dict.module';
 import { JobsModule } from './jobs/jobs.module';
 import { FavoritesModule } from './favorites/favorites.module';
@@ -50,7 +51,7 @@ import { RealtimeModule } from './realtime/realtime.module';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [User, Machine, Contract, Record, Order, Job, Favorite, Notification, Comment, CommentLike, DictType, DictData],
+        entities: [User, Machine, Contract, Record, Order, Job, Favorite, Notification, Comment, CommentLike, DictType, DictData, ChatMessage],
         synchronize: configService.get<boolean>('DB_SYNCHRONIZE'),
       }),
     }),

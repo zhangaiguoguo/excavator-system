@@ -423,6 +423,9 @@ CREATE TABLE t_contract
     contract_no        VARCHAR(32) NOT NULL UNIQUE COMMENT '合同编号',
     machine_id         BIGINT COMMENT '关联设备ID',
     demand_id          BIGINT COMMENT '关联需求ID',
+    rental_start_date  DATE COMMENT '租赁开始日期',
+    rental_end_date    DATE COMMENT '租赁结束日期',
+    amount             DECIMAL(10, 2) COMMENT '合同总金额（元）',
     lessor_id          BIGINT      NOT NULL COMMENT '出租方ID',
     lessee_id          BIGINT      NOT NULL COMMENT '承租方ID',
     template_id        BIGINT      NOT NULL COMMENT '合同模板ID',
@@ -431,7 +434,7 @@ CREATE TABLE t_contract
     lessor_sign_status CHAR(1)     DEFAULT '0' COMMENT '出租方签署状态 (dict: sys_yes_no)',
     lessee_sign_status CHAR(1)     DEFAULT '0' COMMENT '承租方签署状态 (dict: sys_yes_no)',
     sign_expire_at     DATETIME COMMENT '签署截止时间',
-    status             VARCHAR(64) DEFAULT '0' COMMENT '合同状态 (dict: contract_status)',
+    status             VARCHAR(64) DEFAULT '1' COMMENT '合同状态 (dict: contract_status)',
     create_by          VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time        DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_by          VARCHAR(64) DEFAULT '' COMMENT '更新者',
@@ -439,6 +442,13 @@ CREATE TABLE t_contract
     FOREIGN KEY (lessor_id) REFERENCES t_user (id),
     FOREIGN KEY (lessee_id) REFERENCES t_user (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='电子合同表';
+
+-- 若 t_contract 已存在且无租期/金额字段，可执行：
+-- ALTER TABLE t_contract ADD COLUMN rental_start_date DATE COMMENT '租赁开始日期' AFTER demand_id;
+-- ALTER TABLE t_contract ADD COLUMN rental_end_date DATE COMMENT '租赁结束日期' AFTER rental_start_date;
+-- ALTER TABLE t_contract ADD COLUMN amount DECIMAL(10,2) COMMENT '合同总金额（元）' AFTER rental_end_date;
+-- 如需调整已有合同的初始状态为待签署，可执行：
+-- UPDATE t_contract SET status = '1' WHERE status IS NULL OR status = '0';
 
 -- 财务记账表 (原 records)
 CREATE TABLE t_finance_record

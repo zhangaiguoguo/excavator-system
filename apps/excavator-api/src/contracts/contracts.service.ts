@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from './contract.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { v4 as uuidv4 } from 'uuid';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { CryptoService } from '../common/crypto/crypto.service';
 
 @Injectable()
 export class ContractsService {
@@ -12,6 +12,7 @@ export class ContractsService {
     @InjectRepository(Contract)
     private contractsRepository: Repository<Contract>,
     private notificationsService: NotificationsService,
+    private cryptoService: CryptoService,
     private realtimeGateway: RealtimeGateway,
   ) {}
 
@@ -35,47 +36,52 @@ export class ContractsService {
     if (status !== undefined && status !== null) {
       qb.andWhere('c.status = :status', { status });
     }
-    const [list, total] = await qb.skip((p - 1) * ps).take(ps).getManyAndCount();
-    return { list, total };
+    const [list, total] = await qb
+      .skip((p - 1) * ps)
+      .take(ps)
+      .getManyAndCount();
+
+    const safeList = list.map((c) => this.toSafeContract(c));
+    return { list: safeList, total };
   }
 
   findOne(id: string): Promise<Contract | null> {
-    return this.contractsRepository.findOne({
-      where: { id },
-      relations: ['lessor', 'lessee', 'machine'],
-    });
+    return this.contractsRepository
+      .findOne({
+        where: { id },
+        relations: ['lessor', 'lessee', 'machine'],
+      })
+      .then((c) => (c ? this.toSafeContract(c) : null));
   }
 
   async create(contractData: Partial<Contract>): Promise<Contract> {
+    const now = new Date();
+    const dayStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randomStr = Math.floor(Math.random() * 1000000)
+      .toString()
+      .padStart(6, '0');
+
     const contract = this.contractsRepository.create({
       ...contractData,
-      contractNo:
-        'HT' +
-        new Date().toISOString().slice(0, 10).replace(/-/g, '') +
-        Math.floor(Math.random() * 1000000)
-          .toString()
-          .padStart(6, '0'),
-      contentHash: uuidv4(), // Placeholder for hash
-      status: 0, // Draft
+      contractNo: 'DD' + dayStr + randomStr,
+      status: 0, // 待确认
     });
+
+    // 预约提交 -> 通知供应方
     const saved = await this.contractsRepository.save(contract);
-    const createBy = (contractData as any).createBy;
-    const recipientId =
-      createBy && String(createBy) === String(saved.lessorId)
-        ? saved.lesseeId
-        : saved.lessorId;
+    const recipientId = saved.lessorId;
     if (recipientId) {
       await this.notificationsService.create({
         userId: String(recipientId),
-        type: 'contract_invite',
-        title: '您有一条新合同待签署',
-        content: `合同号：${saved.contractNo}，请尽快处理。`,
-        refType: 'contract',
+        type: 'order_create',
+        title: '您有新的预约待确认',
+        content: `订单号：${saved.contractNo}，请尽快确认。`,
+        refType: 'order',
         refId: String(saved.id),
       });
     }
-    this.realtimeGateway.notifyContentUpdated('contract', String(saved.id));
-    return saved;
+    this.realtimeGateway.notifyContentUpdated('order', String(saved.id));
+    return this.toSafeContract(saved);
   }
 
   async update(
@@ -83,45 +89,122 @@ export class ContractsService {
     contractData: Partial<Contract>,
   ): Promise<Contract | null> {
     await this.contractsRepository.update(id, contractData);
-    const c = await this.contractsRepository.findOneBy({ id });
-    if (c) this.realtimeGateway.notifyContentUpdated('contract', String(id));
-    return c;
+    const c = await this.contractsRepository.findOne({
+      where: { id },
+      relations: ['lessor', 'lessee', 'machine'],
+    });
+    if (c) this.realtimeGateway.notifyContentUpdated('order', String(id));
+    return c ? this.toSafeContract(c) : null;
   }
 
-  async sign(
+  /** 供应方确认预约：待确认 -> 待服务 */
+  async confirm(id: string, userId: string): Promise<Contract> {
+    const contract = await this.contractsRepository.findOneBy({ id });
+    if (!contract) throw new BadRequestException('订单不存在');
+    if (String(contract.lessorId) !== String(userId)) {
+      throw new ForbiddenException('仅供应方可确认订单');
+    }
+    if (contract.status !== 0) {
+      throw new BadRequestException('当前状态不允许确认');
+    }
+    contract.status = 1; // 待服务
+    await this.contractsRepository.save(contract);
+
+    // 通知需求方
+    await this.notificationsService.create({
+      userId: String(contract.lesseeId),
+      type: 'order_confirm',
+      title: '您的预约已被确认',
+      content: `订单号：${contract.contractNo} 已确认，请按约定时间服务。`,
+      refType: 'order',
+      refId: String(contract.id),
+    });
+    this.realtimeGateway.notifyContentUpdated('order', String(contract.id));
+    return this.toSafeContract(contract);
+  }
+
+  /** 任一方取消订单（待确认/待服务） */
+  async cancel(
     id: string,
     userId: string,
-    role: 'lessor' | 'lessee',
-  ): Promise<Contract | null> {
-    const updateData: Partial<Contract> = {};
-    if (role === 'lessor') {
-      updateData.lessorSignStatus = 1;
-    } else {
-      updateData.lesseeSignStatus = 1;
+    reason: string,
+  ): Promise<Contract> {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('取消原因必填');
     }
-
-    // Check if both signed
-    const contract = await this.findOne(id);
-    if (!contract) {
-      throw new Error('Contract not found');
+    const contract = await this.contractsRepository.findOneBy({ id });
+    if (!contract) throw new BadRequestException('订单不存在');
+    const isParty =
+      String(contract.lessorId) === String(userId) ||
+      String(contract.lesseeId) === String(userId);
+    if (!isParty) throw new ForbiddenException('仅订单双方可取消');
+    if (contract.status !== 0 && contract.status !== 1) {
+      throw new BadRequestException('当前状态不允许取消');
     }
+    contract.status = 3; // 已取消
+    contract.cancelReason = reason.trim();
+    await this.contractsRepository.save(contract);
 
-    // Check if other party already signed (check current state + new signature)
-    const isLessorSigning = role === 'lessor';
-    const isLesseeSigning = role === 'lessee';
+    const otherUserId =
+      String(contract.lessorId) === String(userId)
+        ? contract.lesseeId
+        : contract.lessorId;
+    await this.notificationsService.create({
+      userId: String(otherUserId),
+      type: 'order_cancel',
+      title: '订单已被取消',
+      content: `订单号：${contract.contractNo} 已取消，原因：${contract.cancelReason}`,
+      refType: 'order',
+      refId: String(contract.id),
+    });
+    this.realtimeGateway.notifyContentUpdated('order', String(contract.id));
+    return this.toSafeContract(contract);
+  }
 
-    if (
-      (isLessorSigning && contract.lesseeSignStatus === 1) ||
-      (isLesseeSigning && contract.lessorSignStatus === 1)
-    ) {
-      updateData.status = 2; // Signed (Both parties signed)
-    } else {
-      updateData.status = 1; // Pending (One party signed)
+  /** 任一方确认完成：待服务 -> 已完成 */
+  async complete(id: string, userId: string): Promise<Contract> {
+    const contract = await this.contractsRepository.findOneBy({ id });
+    if (!contract) throw new BadRequestException('订单不存在');
+    const isParty =
+      String(contract.lessorId) === String(userId) ||
+      String(contract.lesseeId) === String(userId);
+    if (!isParty) throw new ForbiddenException('仅订单双方可操作');
+    if (contract.status !== 1) {
+      throw new BadRequestException('当前状态不允许完成');
     }
+    contract.status = 2; // 已完成
+    await this.contractsRepository.save(contract);
 
-    await this.contractsRepository.update(id, updateData);
-    const updated = await this.contractsRepository.findOneBy({ id });
-    if (updated) this.realtimeGateway.notifyContentUpdated('contract', String(id));
-    return updated;
+    const otherUserId =
+      String(contract.lessorId) === String(userId)
+        ? contract.lesseeId
+        : contract.lessorId;
+    await this.notificationsService.create({
+      userId: String(otherUserId),
+      type: 'order_complete',
+      title: '订单已完成',
+      content: `订单号：${contract.contractNo} 已完成，请知悉。`,
+      refType: 'order',
+      refId: String(contract.id),
+    });
+    this.realtimeGateway.notifyContentUpdated('order', String(contract.id));
+    return this.toSafeContract(contract);
+  }
+
+  /** 统一脱敏手机号，避免前端直接拿到明文 */
+  private toSafeContract(c: Contract): Contract {
+    const clone: any = { ...c };
+    const maskPhone = (phone?: string | null) => {
+      if (!phone) return '';
+      const raw = this.cryptoService.decrypt(phone) ?? phone;
+      return raw.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2');
+    };
+    if (clone.lessor) {
+      clone.lessor = { ...clone.lessor, phone: maskPhone(clone.lessor.phone) };
+    }
+    if (clone.lessee) {
+      clone.lessee = { ...clone.lessee, phone: maskPhone(clone.lessee.phone) };
+    }
+    return clone as Contract;
   }
 }
