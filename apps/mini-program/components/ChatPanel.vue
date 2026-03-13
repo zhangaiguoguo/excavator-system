@@ -10,12 +10,20 @@
         :key="idx"
         :id="'msg-' + idx"
         class="chat-item-row"
+        :class="{ self: m.isSelf }"
       >
+        <!-- 左侧 / 右侧头像 -->
+        <view class="avatar" v-if="!m.isSelf">
+          <text class="avatar-text">{{ (m.fromName || '对').slice(0, 1) }}</text>
+        </view>
         <view class="chat-bubble">
           <text class="chat-text">{{ m.text }}</text>
           <view class="bubble-avatar">
             <uni-icons type="person" size="18" color="#ffffff" />
           </view>
+        </view>
+        <view class="avatar self-avatar" v-if="m.isSelf">
+          <uni-icons type="person" size="18" color="#ffffff" />
         </view>
         <text class="row-time" v-if="m.ts">{{ fullTimeStr(m.ts) }}</text>
       </view>
@@ -25,7 +33,7 @@
     <view class="floating-btn" v-if="lastTimeText">
       {{ lastTimeText }}
     </view>
-    <!-- 底部输入栏：语音 + 文本框 + 加号 -->
+    <!-- 底部输入栏：语音 + 文本框 + 表情 + 加号 + 发送 -->
     <view class="chat-input-bar">
       <view class="icon-btn">
         <uni-icons type="mic" size="22" color="#333" />
@@ -41,8 +49,12 @@
         />
       </view>
       <view class="icon-btn">
+        <uni-icons type="emoji" size="22" color="#333" />
+      </view>
+      <view class="icon-btn">
         <uni-icons type="plusempty" size="22" color="#333" />
       </view>
+      <button class="send-btn" size="mini" :disabled="!canSend" @click="send">发送</button>
     </view>
   </view>
 </template>
@@ -73,6 +85,9 @@ export default {
       if (!this.messages.length) return '';
       const last = this.messages[this.messages.length - 1];
       return this.timeStr(last.ts);
+    },
+    canSend() {
+      return (this.inputText || '').trim().length > 0;
     },
   },
   mounted() {
@@ -212,6 +227,29 @@ export default {
   justify-content: flex-start;
   margin-bottom: 12px;
 }
+.chat-item-row.self {
+  flex-direction: row-reverse;
+}
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #00c777;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+.chat-item-row.self .avatar {
+  margin-right: 0;
+  margin-left: 8px;
+  background: #c7c7cc;
+}
+.avatar-text {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
 .chat-bubble {
   max-width: 70%;
   padding: 8px 10px;
@@ -220,6 +258,9 @@ export default {
   background: #f7f7f7;
   display: flex;
   align-items: center;
+}
+.chat-item-row.self .chat-bubble {
+  background: #d2f5c4;
 }
 .chat-text {
   flex: 1;
@@ -290,6 +331,19 @@ export default {
 }
 .input-placeholder {
   color: #b3b3b3;
+}
+.send-btn {
+  margin: 0;
+  height: 30px;
+  line-height: 30px;
+  padding: 0 10px;
+  font-size: 14px;
+  background: #07c160;
+  color: #fff;
+  border-radius: 4px;
+}
+.send-btn[disabled] {
+  background: #cfcfcf;
 }
 </style>
 
