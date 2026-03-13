@@ -212,13 +212,9 @@ export default {
     goChat() {
       if (!this.machine || !this.machine.id) return;
       const title = '与机主聊天';
-      uni.navigateTo({
-        url:
-          '/pages/chat/index?refType=machine&refId=' +
-          this.machine.id +
-          '&title=' +
-          encodeURIComponent(title),
-      });
+      let url = '/pages/chat/index?refType=machine&refId=' + this.machine.id + '&title=' + encodeURIComponent(title);
+      if (this.machine.userId) url += '&otherUserId=' + this.machine.userId;
+      uni.navigateTo({ url });
     },
     goContract() {
       uni.navigateTo({ url: '/pages/contract/create?machineId=' + this.machine.id });

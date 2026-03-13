@@ -38,8 +38,14 @@
 		<template v-if="userInfo.id">
 			<!-- 常用功能区 -->
 			<uni-section title="我的服务" type="line" titleFontSize="16px">
-				<uni-grid :column="4" :show-border="false" :square="false" class="service-grid">
-					<uni-grid-item v-for="(item, index) in services" :key="index" @click="handleServiceClick(item)">
+				<uni-grid
+					:column="4"
+					:show-border="false"
+					:square="false"
+					class="service-grid"
+					@change="onServiceChange"
+				>
+					<uni-grid-item v-for="(item, index) in services" :key="index" :index="index">
 						<view class="grid-item-box">
 							<uni-icons :type="item.icon" size="28" :color="item.color"></uni-icons>
 							<text class="text">{{ item.text }}</text>
@@ -257,7 +263,10 @@
 					this.$tip.error("获取手机号失败");
 				}
 			},
-			handleServiceClick(item) {
+			onServiceChange(e) {
+				const index = e && e.detail ? e.detail.index : 0;
+				const item = this.services[index];
+				if (!item || !item.path) return;
 				uni.navigateTo({
 					url: item.path
 				});

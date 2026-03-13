@@ -4,7 +4,12 @@
       <text class="title">{{ pageTitle }}</text>
     </view>
     <view class="body">
-      <ChatPanel v-if="refType && refId" :refType="refType" :refId="refId" />
+      <ChatPanel
+        v-if="refType && refId"
+        :refType="refType"
+        :refId="refId"
+        :otherUserId="otherUserId"
+      />
     </view>
   </view>
 </template>
@@ -19,6 +24,7 @@ export default {
     return {
       refType: '',
       refId: '',
+      otherUserId: '',
       pageTitle: '实时聊天',
     };
   },
@@ -26,9 +32,11 @@ export default {
     const refType = options.refType || '';
     const refId = options.refId || '';
     const title = options.title || '';
+    const otherUserId = options.otherUserId || '';
     this.refType = refType;
     this.refId = refId;
-    if (title) this.pageTitle = title;
+    this.otherUserId = otherUserId;
+    if (title) this.pageTitle = decodeURIComponent(title);
   },
   onUnload() {
   },

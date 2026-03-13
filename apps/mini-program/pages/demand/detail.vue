@@ -236,13 +236,9 @@ export default {
     goChat() {
       if (!this.demand || !this.demand.id) return;
       const title = this.demand.type === '2' ? '与招聘方聊天' : '与需求方聊天';
-      uni.navigateTo({
-        url:
-          '/pages/chat/index?refType=demand&refId=' +
-          this.demand.id +
-          '&title=' +
-          encodeURIComponent(title),
-      });
+      let url = '/pages/chat/index?refType=demand&refId=' + this.demand.id + '&title=' + encodeURIComponent(title);
+      if (this.demand.userId) url += '&otherUserId=' + this.demand.userId;
+      uni.navigateTo({ url });
     },
     goTakeOrder() {
       // 接单 = 去发起合同，关联本需求 + 选择我的设备

@@ -494,6 +494,7 @@ CREATE TABLE IF NOT EXISTS t_notification
     32
 ) DEFAULT NULL COMMENT '关联类型 contract/demand/machine',
     ref_id BIGINT DEFAULT NULL COMMENT '关联ID',
+    from_user_id BIGINT DEFAULT NULL COMMENT '聊天消息发送方用户ID',
     is_read TINYINT DEFAULT 0 COMMENT '是否已读 0否 1是',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     FOREIGN KEY
@@ -504,6 +505,9 @@ CREATE TABLE IF NOT EXISTS t_notification
     id
 )
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知表';
+
+-- 若 t_notification 已存在且无 from_user_id 列，可执行：
+-- ALTER TABLE t_notification ADD COLUMN from_user_id BIGINT DEFAULT NULL COMMENT '聊天消息发送方用户ID' AFTER ref_id;
 
 -- 若 t_demand 表已存在且无 images/video 列，可执行以下语句追加（可选）：
 -- ALTER TABLE t_demand ADD COLUMN images JSON COMMENT '图片URL数组' AFTER description;

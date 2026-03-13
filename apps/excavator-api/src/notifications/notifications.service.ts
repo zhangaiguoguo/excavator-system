@@ -17,6 +17,7 @@ export class NotificationsService {
     content?: string;
     refType?: string;
     refId?: string;
+    fromUserId?: string;
   }): Promise<Notification> {
     const notification = this.repo.create(data);
     return this.repo.save(notification);

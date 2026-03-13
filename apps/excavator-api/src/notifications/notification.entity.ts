@@ -28,6 +28,10 @@ export class Notification {
   @Column({ name: 'ref_id', type: 'bigint', nullable: true })
   refId: string;
 
+  /** 聊天消息时表示发送方 userId，用于从通知进入聊天时带对方 id */
+  @Column({ name: 'from_user_id', type: 'bigint', nullable: true })
+  fromUserId: string | null;
+
   @Column({ name: 'is_read', type: 'tinyint', default: 0 })
   isRead: number;
 
