@@ -1,9 +1,9 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatMessage } from './chat-message.entity';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { GetUserId } from '../common/get-user-id';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { getRequiredUserId } from '../common/get-user-id';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
@@ -15,14 +15,16 @@ export class ChatController {
 
   @Get('messages')
   async listMessages(
-    @GetUserId() userId: string,
     @Query('refType') refType: string,
     @Query('refId') refId: string,
     @Query('otherUserId') otherUserId?: string,
+    @Request() req?: any,
   ) {
     if (!refType || !refId) {
       return { list: [], total: 0 };
     }
+    const userId = getRequiredUserId(req || {});
+
     const qb = this.chatRepo
       .createQueryBuilder('m')
       .where('m.ref_type = :refType', { refType })

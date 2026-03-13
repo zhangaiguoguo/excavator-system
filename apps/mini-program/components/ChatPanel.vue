@@ -49,6 +49,7 @@
 
 <script>
 import appStore from '@/store/app';
+import apiService from '@/api/api';
 import realtime from '@/common/service/realtime.js';
 
 export default {
@@ -109,13 +110,13 @@ export default {
       const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
       if (!myId) return;
       // 按 refType + refId + otherUserId 作为一个会话拉取
-      uni.$api
-        ?.getChatMessages({
+      apiService
+        .getChatMessages({
           refType: this.refType,
           refId: this.refId,
           otherUserId: this.otherUserId || undefined,
         })
-        ?.then((res) => {
+        .then((res) => {
           const data = res?.data ?? res;
           const list = data?.list ?? (Array.isArray(data) ? data : []);
           this.messages = list.map((m) => ({
