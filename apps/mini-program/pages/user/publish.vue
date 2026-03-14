@@ -9,18 +9,22 @@
 
 		<!-- 我的设备 -->
 		<view v-if="activeTab === 'machine'" class="list">
-			<view v-for="item in myMachines" :key="item.id" class="card" @click="goMachineDetail(item.id)">
+			<view v-for="item in myMachines" :key="item.id" class="card" :class="{ 'card-off': isOffShelf(item.status) }" @click="goMachineDetail(item.id)">
 				<image class="card-img"
 					:src="getFileViewUrl(item.images && item.images[0]) || '/static/default_machine.png'"
 					mode="aspectFill" />
 				<view class="card-body">
-					<text class="card-title">
+					<view class="card-title-row">
 						<text class="card-title">{{ transformDictValue(item.type,machine_type) }} {{ item.model }}
-							{{item.brand??""}}</text></text>
+							{{item.brand??""}}</text>
+						<text v-if="isOffShelf(item.status)" class="status-tag off">已下架</text>
+					</view>
 					<text class="card-meta">{{ item.province }} {{ item.city }} ·
 						¥{{ item.rentAmount }}/{{ rentUnitLabel(item.rentUnit) }}</text>
 					<view class="card-actions justify-end">
-						<button class="btn-sm m-0" @click.stop="goMachineEdit(item.id)">编辑</button>
+						<button v-if="item.status === PublishStatus.ON_SHELF" class="btn-sm m-0" @click.stop="offShelfMachine(item)">下架</button>
+						<button v-else class="btn-sm primary m-0" @click.stop="onShelfMachine(item)">上架</button>
+						<button class="btn-sm m-0 ml-2" @click.stop="goMachineEdit(item.id)">编辑</button>
 						<button class="btn-sm danger m-0 ml-2" @click.stop="removeMachine(item)">删除</button>
 					</view>
 				</view>
@@ -33,15 +37,20 @@
 
 		<!-- 我的需求 -->
 		<view v-if="activeTab === 'demand'" class="list">
-			<view v-for="item in myDemands" :key="item.id" class="card demand-card" @click="goDemandDetail(item.id)">
+			<view v-for="item in myDemands" :key="item.id" class="card demand-card" :class="{ 'card-off': isOffShelf(item.status) }" @click="goDemandDetail(item.id)">
 				<view class="card-body">
-					<text class="card-tag">{{ item.type === '2' ? '招聘机手' : '求租设备' }}</text>
+					<view class="card-tag-row">
+						<text class="card-tag">{{ item.type === '2' ? '招聘机手' : '求租设备' }}</text>
+						<text v-if="isOffShelf(item.status)" class="status-tag off">已下架</text>
+					</view>
 					<text class="card-equipment">所需设备：{{ demandEquipmentText(item) }}</text>
 					<text
 						class="card-desc">{{ (item.description || '').slice(0, 40) }}{{ (item.description || '').length > 40 ? '...' : '' }}</text>
 					<text class="card-meta">{{ item.province }}{{ item.city }} · {{ demandDateText(item) }}</text>
 					<view class="card-actions justify-end">
-						<button class="btn-sm m-0" @click.stop="goDemandEdit(item.id)">编辑</button>
+						<button v-if="isOnShelf(item.status)" class="btn-sm m-0" @click.stop="offShelfDemand(item)">下架</button>
+						<button v-else class="btn-sm primary m-0" @click.stop="onShelfDemand(item)">上架</button>
+						<button class="btn-sm m-0 ml-2" @click.stop="goDemandEdit(item.id)">编辑</button>
 						<button class="btn-sm danger m-0 ml-2" @click.stop="removeDemand(item)">删除</button>
 					</view>
 				</view>
@@ -82,15 +91,10 @@
 	import {
 		useDictOne
 	} from '@/hooks/useDict';
-	import {
-		tryRefreshList
-	} from '@/common/util/listRefresh.js';
-	import {
-		transformDictValue,
-		formatDemandMachineTypes,
-		formatDemandDateRange
-	} from "@/common/util/util"
+	import { tryRefreshList } from '@/common/util/listRefresh.js';
+	import { transformDictValue, formatDemandMachineTypes, formatDemandDateRange } from '@/common/util/util';
 	import { DemandDateUnlimited } from '@excavator/utils';
+	import { PublishStatus, isOnShelf, isOffShelf } from '@/common/util/constants';
 
 	export default {
 		data() {
@@ -217,6 +221,20 @@
 					url: '/pages/machine/add'
 				});
 			},
+			offShelfMachine(item) {
+				this.$tip.confirm('确定下架该设备吗？下架后不会在找设备列表展示。', true, {}, '提示').then(() => {
+					apiService.updateMachine(item.id, { status: PublishStatus.OFF_SHELF }).then(() => {
+						this.$tip.success('已下架');
+						this.fetchCurrent();
+					}).catch((e) => this.$tip.alert(e?.msg || '操作失败'));
+				}).catch(() => {});
+			},
+			onShelfMachine(item) {
+				apiService.updateMachine(item.id, { status: PublishStatus.ON_SHELF }).then(() => {
+					this.$tip.success('已上架');
+					this.fetchCurrent();
+				}).catch((e) => this.$tip.alert(e?.msg || '操作失败'));
+			},
 			removeMachine(item) {
 				this.$tip.confirm('确定删除该设备吗？', true, {}, '提示').then(() => {
 					apiService.removeMachine(item.id).then(() => {
@@ -245,6 +263,20 @@
 				uni.navigateTo({
 					url: '/pages/demand/add'
 				});
+			},
+			offShelfDemand(item) {
+				this.$tip.confirm('确定下架该需求吗？下架后不会在找活列表展示。', true, {}, '提示').then(() => {
+					apiService.updateDemand(item.id, { status: PublishStatus.OFF_SHELF }).then(() => {
+						this.$tip.success('已下架');
+						this.fetchCurrent();
+					}).catch((e) => this.$tip.alert(e?.msg || '操作失败'));
+				}).catch(() => {});
+			},
+			onShelfDemand(item) {
+				apiService.updateDemand(item.id, { status: PublishStatus.ON_SHELF }).then(() => {
+					this.$tip.success('已上架');
+					this.fetchCurrent();
+				}).catch((e) => this.$tip.alert(e?.msg || '操作失败'));
 			},
 			removeDemand(item) {
 				this.$tip.confirm('确定删除该需求吗？', true, {}, '提示').then(() => {
@@ -331,10 +363,40 @@
 		justify-content: space-between;
 	}
 
+	.card-title-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 4px;
+	}
+
 	.card-title {
 		font-size: 16px;
 		font-weight: 600;
 		color: #1a1a1a;
+	}
+
+	.status-tag {
+		font-size: 11px;
+		padding: 2px 6px;
+		border-radius: 4px;
+		background: #f0f2f5;
+		color: #999;
+
+		&.off {
+			background: #fff3e0;
+			color: #e65100;
+		}
+	}
+
+	.card-off .card-img {
+		opacity: 0.75;
+	}
+
+	.card-tag-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		margin-bottom: 4px;
 	}
 
@@ -381,6 +443,11 @@
 		background: #f0f2f5;
 		color: #666;
 		border: none;
+
+		&.primary {
+			background: #e8f5e9;
+			color: #2e7d32;
+		}
 
 		&.danger {
 			background: #ffebee;

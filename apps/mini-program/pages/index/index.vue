@@ -1,5 +1,16 @@
 <template>
 	<view class="page">
+		<!-- 未登录时默认显示的授权登录遮罩 -->
+		<view v-if="showLoginOverlay" class="login-overlay">
+			<view class="login-overlay-card">
+				<image src="/static/logo.png" class="login-overlay-logo" mode="aspectFit" />
+				<text class="login-overlay-title">欢迎使用挖掘机之家</text>
+				<text class="login-overlay-desc">授权登录后可使用发布、收藏、合同等完整功能</text>
+				<button class="login-overlay-btn primary" @click="doAuthLogin">微信授权登录</button>
+				<view class="login-overlay-skip" @click="closeLoginOverlay">暂不登录</view>
+			</view>
+		</view>
+
 		<!-- 顶部导航：标题 + 当前地址（如美团） -->
 		<view class="top-bar">
 			<view class="navbar">
@@ -138,6 +149,7 @@
 		},
 		data() {
 			return {
+				showLoginOverlay: false,
 				categoryActive: 'home',
 				currentAddress: '',
 				categoryTabs: [{
@@ -179,6 +191,16 @@
 		onShow() {
 			const addr = (appStore().state && appStore().state.currentAddress) || uni.getStorageSync('currentAddress') || '';
 			if (addr) this.currentAddress = addr;
+			// 仅对从未授权过的用户显示登录遮罩，已授权过的不再弹出
+			try {
+				const state = appStore().state;
+				const userInfo = state && state.userInfo;
+				const hasAuthorizedBefore = uni.getStorageSync('hasAuthorizedBefore');
+				const isLoggedIn = !!(userInfo && userInfo.id);
+				this.showLoginOverlay = !isLoggedIn && !hasAuthorizedBefore;
+			} catch (e) {
+				this.showLoginOverlay = false;
+			}
 		},
 		onPullDownRefresh() {
 			Promise.all([this.fetchRecommend(), this.fetchDemands()]).finally(() =>
@@ -303,18 +325,145 @@
 				if (!s) return '需求';
 				return s.length > 24 ? s.slice(0, 24) + '...' : s;
 			},
+			budgetUnitLabel(item) {
+				const u = item && item.budgetUnit;
+				if (!u) return '元';
+				const arr = (this.work_hours_unit && this.work_hours_unit.value) || this.work_hours_unit || [];
+				const o = Array.isArray(arr) ? arr.find((d) => String(d.value) === String(u)) : null;
+				return o ? (o.text || o.label || '元') : '元';
+			},
 			budgetText(item) {
+				const unit = this.budgetUnitLabel(item);
 				if (item.budgetMin != null && item.budgetMax != null)
-					return item.budgetMin + '-' + item.budgetMax + '元';
-				if (item.budgetMin != null) return item.budgetMin + '元起';
-				if (item.budgetMax != null) return '≤' + item.budgetMax + '元';
+					return item.budgetMin + '-' + item.budgetMax + unit;
+				if (item.budgetMin != null) return item.budgetMin + unit + '起';
+				if (item.budgetMax != null) return '≤' + item.budgetMax + unit;
 				return '面议';
+			},
+			closeLoginOverlay() {
+				this.showLoginOverlay = false;
+			},
+			doAuthLogin() {
+				const that = this;
+				uni.showLoading({ title: '授权中...' });
+				uni.getUserProfile({
+					desc: '用于完善会员资料',
+					success: (profileRes) => {
+						const userInfo = profileRes && profileRes.userInfo;
+						if (!userInfo) {
+							uni.hideLoading();
+							that.$tip && that.$tip.alert('未获取到用户信息');
+							return;
+						}
+						uni.showLoading({ title: '登录中...' });
+						uni.login({
+							provider: 'weixin',
+							success: (loginRes) => {
+								apiService.autoLogin({
+									code: loginRes.code,
+									userInfo: userInfo
+								}).then((res) => {
+									uni.hideLoading();
+									const data = (res && res.data) !== undefined ? res.data : res;
+									const access_token = data && data.access_token;
+									const user = data && data.user;
+									if (!access_token || !user) {
+										that.$tip && that.$tip.error('登录失败，请重试');
+										return;
+									}
+									const finalUser = { ...user };
+									appStore().setToken(access_token);
+									appStore().setUser(finalUser);
+									if (finalUser && finalUser.id) uni.setStorageSync('userId', finalUser.id);
+									uni.setStorageSync('hasAuthorizedBefore', true);
+									that.showLoginOverlay = false;
+									that.$tip && that.$tip.success('登录成功');
+									// 授权成功后刷新当前界面数据
+									that.fetchRecommend();
+									that.fetchDemands();
+								}).catch((err) => {
+									console.error(err);
+									uni.hideLoading();
+									that.$tip && that.$tip.error('登录失败，请重试');
+								});
+							},
+							fail: () => {
+								uni.hideLoading();
+								that.$tip && that.$tip.error('微信登录失败');
+							}
+						});
+					},
+					fail: () => {
+						uni.hideLoading();
+						that.$tip && that.$tip.alert('您取消了授权');
+					}
+				});
 			},
 		},
 	};
 </script>
 
 <style lang="scss" scoped>
+	.login-overlay {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 999;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 32px;
+	}
+	.login-overlay-card {
+		background: #fff;
+		border-radius: 20px;
+		padding: 36px 28px;
+		width: 100%;
+		max-width: 320px;
+		text-align: center;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	}
+	.login-overlay-logo {
+		width: 64px;
+		height: 64px;
+		margin-bottom: 16px;
+	}
+	.login-overlay-title {
+		display: block;
+		font-size: 18px;
+		font-weight: 700;
+		color: #333;
+		margin-bottom: 8px;
+	}
+	.login-overlay-desc {
+		display: block;
+		font-size: 13px;
+		color: #666;
+		line-height: 1.5;
+		margin-bottom: 24px;
+	}
+	.login-overlay-btn {
+		width: 100%;
+		height: 44px;
+		line-height: 44px;
+		border-radius: 22px;
+		font-size: 16px;
+		font-weight: 600;
+		background: #07c160;
+		color: #fff;
+		border: none;
+	}
+	.login-overlay-btn::after {
+		border: none;
+	}
+	.login-overlay-skip {
+		margin-top: 16px;
+		font-size: 14px;
+		color: #999;
+	}
 	.page {
 		min-height: 100vh;
 		background: #F5F6F8;

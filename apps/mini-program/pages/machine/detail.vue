@@ -17,9 +17,9 @@
               class="banner-img"
               @click="previewImage(idx)"
             />
-            <view v-else class="banner-video-wrap" @click.stop>
-              <video id="banner-video-machine" class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
-              <view class="video-badge">视频</view>
+            <view v-else class="banner-video-wrap" @click="playBannerVideoFullscreen(idx)">
+              <video :id="'banner-video-machine-' + idx" class="banner-img" :src="getFileViewUrl(m.value)" :show-center-play-btn="true" controls object-fit="contain" />
+              <view class="video-badge">点击全屏观看</view>
             </view>
           </swiper-item>
         </swiper>
@@ -66,8 +66,15 @@
         </view>
       </view>
       <view class="footer-bar">
-        <button type="default" class="btn" @click="goChat">实时聊天</button>
-        <button type="primary" class="btn" @click="goContract">发起合同</button>
+        <template v-if="isMyMachine">
+          <button v-if="isOnShelf(machine.status)" type="default" class="btn" @click="offShelfMachine">下架</button>
+          <button v-else type="default" class="btn" @click="onShelfMachine">上架</button>
+          <button type="primary" class="btn" @click="goMachineEdit">编辑</button>
+        </template>
+        <template v-else>
+          <button type="default" class="btn" @click="goChat">跟机主聊天</button>
+          <button v-if="isOnShelf(machine.status)" type="primary" class="btn" @click="goCreateOrder">生成订单</button>
+        </template>
       </view>
     </template>
     <view v-else class="empty">设备不存在或已下架</view>
@@ -78,6 +85,7 @@
 <script>
 import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
+import { PublishStatus, RefType, isOnShelf } from '@/common/util/constants';
 import { useDictOne } from '@/hooks/useDict';
 import CommentPanel from '@/components/CommentPanel.vue';
 import ChatPanel from '@/components/ChatPanel.vue';
@@ -93,6 +101,7 @@ export default {
       isFav: false,
       showUpdateTip: false,
       offRealtime: null,
+      currentBannerIndex: 0,
       work_hours_unit: useDictOne('work_hours_unit'),
       machine_condition: useDictOne('machine_condition'),
     };
@@ -102,9 +111,9 @@ export default {
       this.machineId = String(options.id);
       this.fetchDetail(this.machineId);
       this.checkFav(this.machineId);
-      realtime.subscribe('machine', this.machineId);
+      realtime.subscribe(RefType.MACHINE, this.machineId);
       this.offRealtime = realtime.on((event, data) => {
-        if (event === 'content_updated' && data && data.refType === 'machine' && String(data.refId) === this.machineId) {
+        if (event === 'content_updated' && data && data.refType === RefType.MACHINE && String(data.refId) === this.machineId) {
           this.showUpdateTip = true;
         }
         if (event === 'reconnected') {
@@ -114,9 +123,15 @@ export default {
     } else this.loading = false;
   },
   onUnload() {
-    if (this.machineId) realtime.unsubscribe('machine', this.machineId);
+    if (this.machineId) realtime.unsubscribe(RefType.MACHINE, this.machineId);
     if (this.offRealtime) this.offRealtime();
     this.offRealtime = null;
+  },
+  computed: {
+    isMyMachine() {
+      const uid = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
+      return !!(this.machine.userId && uid && String(this.machine.userId) === String(uid));
+    },
   },
   methods: {
     getFileViewUrl,
@@ -166,13 +181,24 @@ export default {
       const urls = items.map((m) => this.getFileViewUrl(m.value)).filter(Boolean);
       if (urls.length) uni.previewImage({ urls, current: urls[index] || urls[0] });
     },
+    /** 轮播视频点击全屏播放（传入当前 swiper 下标，保证操作的是当前可见视频） */
+    playBannerVideoFullscreen(idx) {
+      const ctx = uni.createVideoContext('banner-video-machine-' + idx, this);
+      if (!ctx) return;
+      if (ctx.requestFullScreen) {
+        ctx.requestFullScreen({ direction: 0 });
+      } else {
+        ctx.play();
+      }
+    },
     onBannerSwiperChange(e) {
       const items = this.mediaItems(this.machine);
-      const videoIdx = items.findIndex((m) => m.type === 'video');
-      if (videoIdx >= 0 && e.detail.current !== videoIdx) {
-        const ctx = uni.createVideoContext('banner-video-machine', this);
+      const oldIdx = this.currentBannerIndex;
+      if (oldIdx >= 0 && items[oldIdx] && items[oldIdx].type === 'video') {
+        const ctx = uni.createVideoContext('banner-video-machine-' + oldIdx, this);
         if (ctx && ctx.pause) ctx.pause();
       }
+      this.currentBannerIndex = e.detail.current;
     },
     toggleFav() {
       const userId = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
@@ -212,13 +238,35 @@ export default {
     goChat() {
       if (!this.machine || !this.machine.id) return;
       const otherName = (this.machine.user && this.machine.user.nickname) || '机主';
-      const title = otherName;
-      let url = '/pages/chat/index?refType=machine&refId=' + this.machine.id + '&title=' + encodeURIComponent(title);
+      const title = otherName; // 聊天页显示「跟XXX聊天」
+      let url = '/pages/chat/index?refType=' + RefType.MACHINE + '&refId=' + this.machine.id + '&title=' + encodeURIComponent(title);
       if (this.machine.userId) url += '&otherUserId=' + this.machine.userId;
       uni.navigateTo({ url });
     },
-    goContract() {
+    goCreateOrder() {
       uni.navigateTo({ url: '/pages/contract/create?machineId=' + this.machine.id });
+    },
+    goMachineEdit() {
+      if (this.machine.id) uni.navigateTo({ url: '/pages/machine/add?id=' + this.machine.id });
+    },
+    offShelfMachine() {
+      uni.showModal({
+        title: '提示',
+        content: '确定下架该设备吗？下架后不会在找设备列表展示。',
+        success: (res) => {
+          if (!res.confirm) return;
+          apiService.updateMachine(this.machine.id, { status: PublishStatus.OFF_SHELF }).then(() => {
+            uni.showToast({ title: '已下架' });
+            this.fetchDetail(this.machineId);
+          }).catch((e) => uni.showToast({ title: e?.msg || '操作失败', icon: 'none' }));
+        },
+      });
+    },
+    onShelfMachine() {
+      apiService.updateMachine(this.machine.id, { status: PublishStatus.ON_SHELF }).then(() => {
+        uni.showToast({ title: '已上架' });
+        this.fetchDetail(this.machineId);
+      }).catch((e) => uni.showToast({ title: e?.msg || '操作失败', icon: 'none' }));
     },
   },
 };

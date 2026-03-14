@@ -104,6 +104,7 @@
 	import {
 		ACCESS_TOKEN
 	} from '@/common/util/constants';
+	import configService from '@/common/service/config.service.js';
 	import apiService from '@/api/api';
 	import {
 		Constants
@@ -145,6 +146,12 @@
 						icon: 'chat',
 						path: '/pages/notify/list',
 						color: '#2196F3'
+					},
+					{
+						text: '聊天记录',
+						icon: 'chatbubble',
+						path: '/pages/chat/list',
+						color: '#07c160'
 					}
 				]
 			}
@@ -272,9 +279,12 @@
 				});
 			},
 			contactService() {
-				uni.makePhoneCall({
-					phoneNumber: '13800138000'
-				});
+				const phone = (configService && configService.customerServicePhone) || '';
+				if (!phone) {
+					this.$tip && this.$tip.alert('客服电话未配置');
+					return;
+				}
+				uni.makePhoneCall({ phoneNumber: String(phone).replace(/-/g, '') });
 			},
 			logout() {
 				this.$tip.confirm('确定要退出登录吗？', true, {}, '提示').then(() => {

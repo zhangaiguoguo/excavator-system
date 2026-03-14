@@ -34,6 +34,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GeoModule } from './geo/geo.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { SmsModule } from './sms/sms.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     DictModule,
     FileModule,
     GeoModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [

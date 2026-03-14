@@ -1,205 +1,680 @@
 <template>
   <view class="chat-panel">
-    <scroll-view
-      class="chat-list"
-      scroll-y
-      :scroll-into-view="scrollIntoId"
-    >
-      <view
-        v-for="(m, idx) in messages"
-        :key="idx"
-        :id="'msg-' + idx"
-        class="chat-item-row"
-        :class="{ self: m.isSelf }"
+    <!-- 仅此区域可滚动，上下栏固定 -->
+    <view class="chat-list-wrap">
+      <scroll-view
+        class="chat-list"
+        scroll-y
+        :scroll-into-view="scrollIntoId"
+        :scroll-with-animation="true"
+        :enable-back-to-top="false"
+        @scrolltoupper="onScrollUpper"
       >
-        <!-- 左侧 / 右侧头像 -->
-        <view class="avatar" v-if="!m.isSelf">
-          <text class="avatar-text">{{ (m.fromName || '对').slice(0, 1) }}</text>
-        </view>
-        <view class="chat-bubble">
-          <text class="chat-text">{{ m.text }}</text>
-          <view class="bubble-avatar">
-            <uni-icons type="person" size="18" color="#ffffff" />
+        <view class="list-inner">
+        <view
+          v-for="(m, idx) in messages"
+          :key="'msg-' + idx"
+          :id="'msg-' + idx"
+          class="msg-row"
+          :class="{ self: m.isSelf }"
+        >
+          <view class="msg-time" v-if="showTime(m, idx)">{{ msgDateStr(m.ts) }}</view>
+          <view class="msg-body">
+            <view class="avatar" v-if="!m.isSelf">
+              <image v-if="otherUserAvatar" class="avatar-img" :src="otherUserAvatar" mode="aspectFill" />
+              <text v-else class="avatar-txt">{{ (m.fromName || '对').slice(0, 1) }}</text>
+            </view>
+            <view class="bubble-wrap">
+              <view class="bubble" :class="{ self: m.isSelf }">
+                <!-- 位置消息 -->
+                <template v-if="m.isLocation">
+                  <view class="bubble-location">
+                    <uni-icons type="location" size="18" color="#07c160" />
+                    <text class="location-addr">{{ m.locationAddr || '位置' }}</text>
+                  </view>
+                </template>
+                <!-- 语音消息（可点击播放） -->
+                <template v-else-if="m.isVoice">
+                  <view class="bubble-voice" @click="(m.voiceUrl || m._voiceUrl) ? playVoice(m.voiceUrl || m._voiceUrl, m) : null">
+                    <uni-icons :type="m.playing ? 'pause' : 'mic'" size="20" color="#666" />
+                    <text class="voice-dur">{{ m.voiceDuration || '' }}"</text>
+                    <text v-if="(m.voiceUrl || m._voiceUrl) && !m.playing" class="voice-hint">点击播放</text>
+                    <text v-else-if="m.playing" class="voice-hint">播放中</text>
+                  </view>
+                </template>
+                <!-- 图片消息 -->
+                <template v-else-if="m.isImage">
+                  <image v-if="m.imageUrl" class="bubble-img" :src="m.imageUrl" mode="widthFix" @click="previewImage(m.imageUrl)" />
+                  <text v-else class="bubble-text">{{ TAGS.IMAGE }}</text>
+                </template>
+                <!-- 视频消息 -->
+                <template v-else-if="m.isVideo">
+                  <view v-if="m.videoUrl" class="bubble-video-wrap">
+                    <video class="bubble-video" :src="m.videoUrl" controls :show-center-play-btn="true" object-fit="contain" />
+                  </view>
+                  <text v-else class="bubble-text">{{ TAGS.VIDEO }}</text>
+                </template>
+                <!-- 文本 -->
+                <text v-else class="bubble-text">{{ m.text }}</text>
+              </view>
+            </view>
+            <view class="avatar self" v-if="m.isSelf">
+              <image v-if="myAvatar" class="avatar-img" :src="myAvatar" mode="aspectFill" />
+              <text v-else class="avatar-txt">{{ (m.fromName || '我').slice(0, 1) }}</text>
+            </view>
           </view>
         </view>
-        <view class="avatar self-avatar" v-if="m.isSelf">
-          <uni-icons type="person" size="18" color="#ffffff" />
+        <view v-if="!messages.length" class="empty-tip">
+          <text class="empty-main">暂无消息，发一句打个招呼吧</text>
+          <text class="empty-hint">支持文字、图片、语音、视频、位置</text>
         </view>
-        <text class="row-time" v-if="m.ts">{{ fullTimeStr(m.ts) }}</text>
-      </view>
-      <view v-if="!messages.length" class="chat-empty">暂无消息，开始聊天吧～</view>
-    </scroll-view>
-    <!-- 右下角“刚刚”按钮 -->
-    <view class="floating-btn" v-if="lastTimeText">
-      {{ lastTimeText }}
+        </view>
+      </scroll-view>
     </view>
-    <!-- 底部输入栏：语音 + 文本框 + 表情 + 加号 + 发送 -->
-    <view class="chat-input-bar">
-      <view class="icon-btn">
-        <uni-icons type="mic" size="22" color="#333" />
+
+    <!-- 表情面板 -->
+    <view class="emoji-panel" v-if="showEmoji">
+      <scroll-view scroll-y class="emoji-scroll">
+        <view class="emoji-grid">
+          <view
+            v-for="(e, i) in emojiList"
+            :key="i"
+            class="emoji-item"
+            @click="insertEmoji(e)"
+          >{{ e }}</view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 更多面板：定位、相册、拍摄 -->
+    <view class="more-panel" v-if="showMore">
+      <view class="more-grid">
+        <view class="more-item" @click="sendLocation">
+          <view class="more-icon-wrap"><uni-icons type="location" size="28" color="#07c160" /></view>
+          <text class="more-label">定位</text>
+        </view>
+        <view class="more-item" @click="chooseImage">
+          <view class="more-icon-wrap"><uni-icons type="image" size="28" color="#07c160" /></view>
+          <text class="more-label">相册</text>
+        </view>
+        <view class="more-item" @click="takePhoto">
+          <view class="more-icon-wrap"><uni-icons type="camera" size="28" color="#07c160" /></view>
+          <text class="more-label">拍摄</text>
+        </view>
+        <view class="more-item" @click="chooseVideo">
+          <view class="more-icon-wrap"><uni-icons type="videocam" size="28" color="#07c160" /></view>
+          <text class="more-label">视频</text>
+        </view>
+        <view class="more-item" @click="toggleLiveLocation">
+          <view class="more-icon-wrap"><uni-icons type="location-filled" size="28" color="#07c160" /></view>
+          <text class="more-label">共享实时位置</text>
+        </view>
       </view>
-      <view class="input-wrapper">
-        <input
-          class="text-input"
-          v-model="inputText"
-          placeholder="请输入内容"
-          placeholder-class="input-placeholder"
-          confirm-type="send"
-          @confirm="send"
-        />
+    </view>
+
+    <!-- 对方正在共享实时位置：地图浮层 -->
+    <view class="live-location-overlay" v-if="otherUserLiveLocation && !isSharingLocation" @click.stop>
+      <view class="live-location-header">
+        <text class="live-location-title">{{ otherUserLiveLocation.fromName || '对方' }} 正在共享实时位置</text>
+        <view class="live-location-close" @click="otherUserLiveLocation = null">×</view>
       </view>
-      <view class="icon-btn">
-        <uni-icons type="emoji" size="22" color="#333" />
+      <map
+        class="live-location-map"
+        :latitude="otherUserLiveLocation.latitude"
+        :longitude="otherUserLiveLocation.longitude"
+        :markers="otherUserLiveMarkers"
+        scale="16"
+        show-location
+      />
+    </view>
+
+    <!-- 自己正在共享：底部条 + 结束 -->
+    <view class="live-location-bar" v-if="isSharingLocation">
+      <text class="live-location-bar-text">正在共享实时位置</text>
+      <button class="live-location-end-btn" @click="endLocationShare">结束</button>
+    </view>
+
+    <!-- 下：输入控制栏 -->
+    <view class="input-bar">
+      <view class="input-bar-main">
+        <view class="icon-btn" @click="toggleVoice">
+          <uni-icons :type="isVoiceMode ? 'compose' : 'mic'" size="24" color="#333" />
+        </view>
+        <!-- 语音模式：按住说话 -->
+        <view v-if="isVoiceMode" class="voice-touch" @touchstart="onVoiceStart" @touchend="onVoiceEnd" @touchcancel="onVoiceEnd">
+          <text>{{ voiceRecording ? '松开 发送' : '按住 说话' }}</text>
+        </view>
+        <!-- 文字输入 -->
+        <view v-else class="input-wrap">
+          <input
+            class="text-inp"
+            v-model="inputText"
+            type="text"
+            placeholder="请输入消息"
+            placeholder-class="inp-placeholder"
+            confirm-type="send"
+            :adjust-position="true"
+            :hold-keyboard="false"
+            :focus="inputFocused"
+            @focus="inputFocused = true; closePanels()"
+            @blur="onInputBlur"
+            @confirm="sendText"
+          />
+        </view>
+        <view class="icon-btn icon-emoji" @click="toggleEmoji" title="表情">😀</view>
+        <view class="icon-btn" @click="toggleMore">
+          <uni-icons type="plusempty" size="24" color="#333" />
+        </view>
+        <button class="send-btn" :class="{ active: canSend }" :disabled="!canSend" @click="sendText">发送</button>
       </view>
-      <view class="icon-btn">
-        <uni-icons type="plusempty" size="22" color="#333" />
-      </view>
-      <button class="send-btn" size="mini" :disabled="!canSend" @click="send">发送</button>
     </view>
   </view>
 </template>
 
 <script>
 import appStore from '@/store/app';
-import apiService from '@/api/api';
+import apiService, { getFileViewUrl } from '@/api/api';
+import configService from '@/common/service/config.service';
 import realtime from '@/common/service/realtime.js';
+import {
+  TAGS,
+  MSG_TYPE,
+  buildContent,
+  parseContent,
+} from '@/common/util/chatMessageTypes.js';
+
+const EMOJI_ARR = ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😍','🥰','😘','😋','😛','😜','🤪','😝','🤗','🤭','🤔','😐','😏','😣','😢','😭','😱','😤','😡','🥳','😎','🤓','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😢','😭','😱','😖','😣','👍','👎','👏','🙌','🤝','🙏','❤️','💪','🔥','⭐','✨'];
 
 export default {
   name: 'ChatPanel',
   props: {
     refType: { type: String, required: true },
     refId: { type: [String, Number], required: true },
-    /** 对方 userId，用于后端给对方发聊天通知（如机主回复时通知访客） */
     otherUserId: { type: String, default: '' },
   },
   data() {
     return {
+      TAGS,
       messages: [],
       inputText: '',
+      inputFocused: false,
+      showEmoji: false,
+      showMore: false,
+      isVoiceMode: false,
+      voiceRecording: false,
+      recorderManager: null,
+      voiceFilePath: '',
       offRealtime: null,
       scrollIntoId: '',
+      emojiList: EMOJI_ARR,
+      voiceAudio: null,
+      otherUserAvatar: '',
+      isSharingLocation: false,
+      locationShareTimer: null,
+      otherUserLiveLocation: null,
     };
   },
   computed: {
-    lastTimeText() {
-      if (!this.messages.length) return '';
-      const last = this.messages[this.messages.length - 1];
-      return this.timeStr(last.ts);
+    otherUserLiveMarkers() {
+      const o = this.otherUserLiveLocation;
+      if (!o || o.latitude == null || o.longitude == null) return [];
+      return [{
+        id: 1,
+        latitude: o.latitude,
+        longitude: o.longitude,
+        width: 24,
+        height: 24,
+        callout: { content: (o.fromName || '对方') + ' 实时位置', display: 'ALWAYS', padding: 4, borderRadius: 4 },
+      }];
     },
     canSend() {
       return (this.inputText || '').trim().length > 0;
     },
+    myAvatar() {
+      const store = appStore();
+      const user = (store.state && store.state.userInfo) || {};
+      const avatar = user.avatar;
+      return (typeof avatar === 'string' && avatar.trim()) ? avatar : '';
+    },
+  },
+  watch: {
+    otherUserId: {
+      immediate: true,
+      handler(id) {
+        if (!id) { this.otherUserAvatar = ''; return; }
+        apiService.getUser(id).then((res) => {
+          const d = res?.data ?? res;
+          const avatar = d && d.avatar;
+          this.otherUserAvatar = (typeof avatar === 'string' && avatar.trim()) ? avatar : '';
+        }).catch(() => { this.otherUserAvatar = ''; });
+      },
+    },
   },
   mounted() {
-    // 先拉取历史记录
     this.fetchHistory();
     this.offRealtime = realtime.on((event, data) => {
-      if (event !== 'chat_message') return;
-      if (!data || String(data.refType) !== this.refType || String(data.refId) !== String(this.refId)) return;
-      const store = appStore();
-      const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
-      const isSelf = myId && data.fromUserId && String(myId) === String(data.fromUserId);
-      // 自己发的消息已在 send() 里本地插入，不再重复添加，避免一条变两条
-      if (isSelf) return;
-      this.messages.push({
-        text: data.text || '',
-        fromName: data.fromName || '用户',
-        fromUserId: data.fromUserId,
-        ts: data.ts || new Date().toISOString(),
-        isSelf: false,
-      });
-      this.$nextTick(() => {
-        this.scrollToBottom();
-      });
+      if (event === 'chat_message') {
+        if (!data || String(data.refType) !== this.refType || String(data.refId) !== String(this.refId)) return;
+        const store = appStore();
+        const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
+        const isSelf = myId && data.fromUserId && String(myId) === String(data.fromUserId);
+        if (isSelf) return;
+        this.pushMessage(data);
+        this.$nextTick(() => this.scrollToBottom());
+        return;
+      }
+      if (event === 'location_share') {
+        if (!data || String(data.refType) !== this.refType || String(data.refId) !== String(this.refId)) return;
+        const store = appStore();
+        const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
+        if (data.fromUserId && String(data.fromUserId) === String(myId)) return;
+        this.otherUserLiveLocation = {
+          latitude: data.latitude,
+          longitude: data.longitude,
+          fromUserId: data.fromUserId,
+          fromName: data.fromName || '对方',
+          timestamp: data.timestamp,
+        };
+        return;
+      }
+      if (event === 'location_share_end') {
+        if (!data || String(data.refType) !== this.refType || String(data.refId) !== String(this.refId)) return;
+        if (this.otherUserLiveLocation && data.fromUserId && String(this.otherUserLiveLocation.fromUserId) === String(data.fromUserId)) {
+          this.otherUserLiveLocation = null;
+        }
+      }
     });
     realtime.subscribe(this.refType, this.refId);
   },
   beforeUnmount() {
+    this.endLocationShare();
     if (this.offRealtime) this.offRealtime();
     this.offRealtime = null;
     realtime.unsubscribe(this.refType, this.refId);
+    if (this.recorderManager) {
+      try { this.recorderManager.stop(); } catch (e) {}
+    }
+    if (this.voiceAudio) {
+      try { this.voiceAudio.stop(); this.voiceAudio.destroy(); } catch (e) {}
+      this.voiceAudio = null;
+    }
   },
   methods: {
-    fetchHistory() {
-      const store = appStore();
-      const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
-      if (!myId) return;
-      // 按 refType + refId + otherUserId 作为一个会话拉取
-      apiService
-        .getChatMessages({
-          refType: this.refType,
-          refId: this.refId,
-          otherUserId: this.otherUserId || undefined,
-        })
-        .then((res) => {
-          const data = res?.data ?? res;
-          const list = data?.list ?? (Array.isArray(data) ? data : []);
-          this.messages = list.map((m) => ({
-            text: m.content,
-            fromName: '', // 当前样式不展示昵称
-            fromUserId: String(m.fromUserId),
-            ts: m.createTime,
-            isSelf: myId && String(myId) === String(m.fromUserId),
-          }));
-          this.$nextTick(() => this.scrollToBottom());
-        })
-        .catch(() => {});
+    /** 语音/媒体 URL 转为可播放的绝对地址（小程序 InnerAudioContext 需完整 URL） */
+    ensureAbsoluteUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      const u = url.trim();
+      if (/^https?:\/\//i.test(u)) return u;
+      const base = (configService && configService.apiUrl) || '';
+      if (!base) return u;
+      return u.startsWith('/') ? base.replace(/\/$/, '') + u : base + '/' + u;
     },
-    fullTimeStr(ts) {
+    pushMessage(data, opts = {}) {
+      const content = data.text || data.content || '';
+      const parsed = parseContent(content);
+      const msg = {
+        text: parsed.text,
+        fromName: data.fromName || '用户',
+        fromUserId: data.fromUserId,
+        ts: data.ts || new Date().toISOString(),
+        isSelf: opts.isSelf || false,
+        ...parsed,
+      };
+      if (msg.isVoice && msg.voiceUrl) {
+        msg._voiceUrl = this.ensureAbsoluteUrl(msg.voiceUrl);
+        msg.voiceUrl = msg._voiceUrl || msg.voiceUrl;
+      }
+      this.messages.push(msg);
+    },
+    showTime(msg, idx) {
+      if (idx === 0) return true;
+      const prev = this.messages[idx - 1];
+      if (!prev || !prev.ts || !msg.ts) return false;
+      return new Date(msg.ts).getTime() - new Date(prev.ts).getTime() > 5 * 60 * 1000;
+    },
+    msgDateStr(ts) {
       if (!ts) return '';
       const d = new Date(ts);
       if (Number.isNaN(d.getTime())) return '';
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
       const hh = String(d.getHours()).padStart(2, '0');
       const mm = String(d.getMinutes()).padStart(2, '0');
-      return `${y}/${m}/${day} ${hh}:${mm}`;
+      if (isToday) return `${hh}:${mm}`;
+      const md = `${d.getMonth() + 1}/${d.getDate()}`;
+      return `${md} ${hh}:${mm}`;
     },
-    timeStr(ts) {
-      if (!ts) return '';
-      const d = new Date(ts);
-      if (Number.isNaN(d.getTime())) return '';
-      const diff = Date.now() - d.getTime();
-      if (diff < 60000) return '刚刚';
-      if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-      if (diff < 86400000) return d.toTimeString().slice(0, 5);
-      return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }) + ' ' + d.toTimeString().slice(0, 5);
+    closePanels() {
+      this.showEmoji = false;
+      this.showMore = false;
     },
-    send() {
-      const text = (this.inputText || '').trim();
-      if (!text) return;
+    onInputBlur() {
+      setTimeout(() => { this.inputFocused = false; }, 100);
+    },
+    toggleVoice() {
+      this.isVoiceMode = !this.isVoiceMode;
+      this.closePanels();
+    },
+    toggleEmoji() {
+      this.showEmoji = !this.showEmoji;
+      this.showMore = false;
+      if (this.showEmoji) this.inputFocused = false;
+    },
+    toggleMore() {
+      this.showMore = !this.showMore;
+      this.showEmoji = false;
+      if (this.showMore) this.inputFocused = false;
+    },
+    insertEmoji(e) {
+      this.inputText = (this.inputText || '') + e;
+    },
+    onVoiceStart() {
+      if (this.voiceRecording) return;
+      this.voiceRecording = true;
+      this.startRecord();
+    },
+    onVoiceEnd() {
+      if (!this.voiceRecording) return;
+      this.voiceRecording = false;
+      this.stopRecord();
+    },
+    startRecord() {
+      this.recorderManager = uni.getRecorderManager();
+      this.recorderManager.start({ duration: 60000, sampleRate: 16000, format: 'mp3' });
+      this.recorderManager.onStop((res) => {
+        const duration = Math.round((res.duration || 0) / 1000);
+        if (duration > 0 && res.tempFilePath) {
+          this.sendVoice(res.tempFilePath, duration);
+        } else {
+          this.$tip && this.$tip.alert('录音时间太短');
+        }
+      });
+    },
+    stopRecord() {
+      if (this.recorderManager) {
+        try { this.recorderManager.stop(); } catch (e) {}
+      }
+    },
+    sendVoice(filePath, duration) {
       const store = appStore();
-      const user = (store.state && store.state.userInfo) || uni.getStorageSync('userInfo') || {};
+      const user = (store.state && store.state.userInfo) || {};
+      const userId = user.id || uni.getStorageSync('userId');
+      if (!userId) { this.$tip && this.$tip.alert('请先登录'); return; }
+      this.$tip && this.$tip.loading && this.$tip.loading('上传中...');
+      apiService.uploadFile(filePath).then((up) => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        const rawUrl = up.url || (up.fileName ? getFileViewUrl(up.fileName) : '');
+        const url = rawUrl && !/^https?:\/\//i.test(rawUrl) ? getFileViewUrl(up.fileName) : rawUrl;
+        const content = buildContent(MSG_TYPE.VOICE, { duration, url: url || rawUrl });
+        this.pushMessage({
+          text: content,
+          fromName: user.nickname || '我',
+          fromUserId: String(userId),
+          ts: new Date().toISOString(),
+        }, { isSelf: true });
+        this.$nextTick(() => this.scrollToBottom());
+        realtime.send('chat_message', {
+          refType: this.refType,
+          refId: String(this.refId),
+          text: content,
+          fromUserId: String(userId),
+          fromName: user.nickname || '我',
+          toUserId: this.otherUserId || undefined,
+        });
+      }).catch(() => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        const content = buildContent(MSG_TYPE.VOICE, { duration });
+        this.pushMessage({
+          text: content,
+          fromName: user.nickname || '我',
+          fromUserId: String(userId),
+          ts: new Date().toISOString(),
+        }, { isSelf: true });
+        this.$nextTick(() => this.scrollToBottom());
+        realtime.send('chat_message', {
+          refType: this.refType,
+          refId: String(this.refId),
+          text: content,
+          fromUserId: String(userId),
+          fromName: user.nickname || '我',
+          toUserId: this.otherUserId || undefined,
+        });
+      });
+    },
+    playVoice(url, msg) {
+      const playUrl = this.ensureAbsoluteUrl(url || (msg && (msg.voiceUrl || msg._voiceUrl)));
+      if (!playUrl) return;
+      if (this.voiceAudio) {
+        this.voiceAudio.stop();
+        this.voiceAudio.destroy();
+        this.voiceAudio = null;
+        this.messages.forEach((m) => { m.playing = false; });
+      }
+      this.voiceAudio = uni.createInnerAudioContext();
+      this.voiceAudio.src = playUrl;
+      this.voiceAudio.onPlay(() => { if (msg) msg.playing = true; });
+      this.voiceAudio.onStop(() => { if (msg) msg.playing = false; });
+      this.voiceAudio.onEnded(() => {
+        if (msg) msg.playing = false;
+        if (this.voiceAudio) { this.voiceAudio.destroy(); this.voiceAudio = null; }
+      });
+      this.voiceAudio.onError(() => {
+        if (msg) msg.playing = false;
+        this.$tip && this.$tip.alert('播放失败');
+        if (this.voiceAudio) { this.voiceAudio.destroy(); this.voiceAudio = null; }
+      });
+      this.voiceAudio.play();
+    },
+    chooseVideo() {
+      this.showMore = false;
+      uni.chooseMedia({
+        count: 1,
+        mediaType: ['video'],
+        sourceType: ['album', 'camera'],
+        maxDuration: 60,
+        success: (res) => {
+          const path = res.tempFiles[0]?.tempFilePath || res.tempFiles[0]?.filePath;
+          if (path) this.uploadAndSendVideo(path);
+        },
+      });
+    },
+    uploadAndSendVideo(filePath) {
+      const store = appStore();
+      const userId = (store.state && store.state.userInfo || {}).id || uni.getStorageSync('userId');
+      if (!userId) { this.$tip && this.$tip.alert('请先登录'); return; }
+      this.$tip && this.$tip.loading && this.$tip.loading('上传中...');
+      apiService.uploadFile(filePath).then((up) => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        const url = up.url || (up.fileName ? getFileViewUrl(up.fileName) : '');
+        this.doSend(buildContent(MSG_TYPE.VIDEO, { url }));
+      }).catch(() => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        this.doSend(buildContent(MSG_TYPE.VIDEO, {}));
+      });
+    },
+    sendLocation() {
+      this.showMore = false;
+      uni.chooseLocation({
+        success: (res) => {
+          const addr = (res.address || res.name || '').trim() || (res.latitude + ',' + res.longitude);
+          this.doSend(buildContent(MSG_TYPE.LOCATION, {
+            address: addr,
+            longitude: res.longitude,
+            latitude: res.latitude,
+          }));
+        },
+        fail: (err) => {
+          if (err.errMsg && !err.errMsg.includes('cancel')) {
+            uni.getLocation({
+              type: 'gcj02',
+              success: (loc) => {
+                apiService.regeoLocation({ longitude: loc.longitude, latitude: loc.latitude, extensions: 'base' }).then((r) => {
+                  const d = r?.data ?? r;
+                  const addr = [d?.city, d?.district].filter(Boolean).join('') || d?.province || '当前定位';
+                  this.doSend(buildContent(MSG_TYPE.LOCATION, { address: addr, longitude: loc.longitude, latitude: loc.latitude }));
+                }).catch(() => {
+                  this.doSend(buildContent(MSG_TYPE.LOCATION, { address: '坐标', longitude: loc.longitude, latitude: loc.latitude }));
+                });
+              },
+              fail: () => { this.$tip && this.$tip.alert('无法获取位置'); },
+            });
+          }
+        },
+      });
+    },
+    toggleLiveLocation() {
+      this.showMore = false;
+      if (this.isSharingLocation) {
+        this.endLocationShare();
+        return;
+      }
+      this.startLocationShare();
+    },
+    startLocationShare() {
+      const store = appStore();
+      const user = (store.state && store.state.userInfo) || {};
       const userId = user.id || uni.getStorageSync('userId');
       if (!userId) {
         this.$tip && this.$tip.alert('请先登录');
         return;
       }
-      const fromName = user.nickname || '我';
-      const now = new Date().toISOString();
-      // 本地先插入一条自己的消息
+      const doSendLocation = () => {
+        uni.getLocation({
+          type: 'gcj02',
+          success: (loc) => {
+            realtime.send('location_share', {
+              refType: this.refType,
+              refId: String(this.refId),
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              fromUserId: String(userId),
+              fromName: user.nickname || '我',
+              timestamp: Date.now(),
+            });
+          },
+          fail: () => {},
+        });
+      };
+      doSendLocation();
+      this.locationShareTimer = setInterval(doSendLocation, 4000);
+      this.isSharingLocation = true;
+    },
+    endLocationShare() {
+      if (this.locationShareTimer) {
+        clearInterval(this.locationShareTimer);
+        this.locationShareTimer = null;
+      }
+      if (!this.isSharingLocation) return;
+      const store = appStore();
+      const userId = (store.state && store.state.userInfo || {}).id || uni.getStorageSync('userId');
+      if (userId) {
+        realtime.send('location_share_end', {
+          refType: this.refType,
+          refId: String(this.refId),
+          fromUserId: String(userId),
+        });
+      }
+      this.isSharingLocation = false;
+    },
+    chooseImage() {
+      this.showMore = false;
+      uni.chooseImage({
+        count: 1,
+        success: (res) => {
+          const path = res.tempFilePaths[0];
+          this.uploadAndSendImage(path);
+        },
+      });
+    },
+    takePhoto() {
+      this.showMore = false;
+      uni.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sourceType: ['camera'],
+        success: (res) => {
+          const path = res.tempFiles[0]?.tempFilePath || res.tempFiles[0]?.filePath;
+          if (path) this.uploadAndSendImage(path);
+        },
+      });
+    },
+    uploadAndSendImage(filePath) {
+      const store = appStore();
+      const userId = (store.state && store.state.userInfo || {}).id || uni.getStorageSync('userId');
+      if (!userId) { this.$tip && this.$tip.alert('请先登录'); return; }
+      this.$tip && this.$tip.loading && this.$tip.loading('上传中...');
+      apiService.uploadFile(filePath).then((up) => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        const url = up.url || (up.fileName ? getFileViewUrl(up.fileName) : '');
+        this.doSend(buildContent(MSG_TYPE.IMAGE, { url }));
+      }).catch(() => {
+        this.$tip && this.$tip.loaded && this.$tip.loaded();
+        this.doSend(buildContent(MSG_TYPE.IMAGE, {}));
+      });
+    },
+    previewImage(url) {
+      if (url) uni.previewImage({ urls: [url], current: url });
+    },
+    doSend(content, opts = {}) {
+      const store = appStore();
+      const user = (store.state && store.state.userInfo) || {};
+      const userId = user.id || uni.getStorageSync('userId');
+      if (!userId) { this.$tip && this.$tip.alert('请先登录'); return; }
+      const parsed = parseContent(content);
       this.messages.push({
-        text,
-        fromName,
+        text: parsed.text,
+        fromName: user.nickname || '我',
         fromUserId: String(userId),
-        ts: now,
+        ts: new Date().toISOString(),
         isSelf: true,
+        ...parsed,
       });
-      this.inputText = '';
-      this.$nextTick(() => {
-        this.scrollToBottom();
-      });
-      const payload = {
+      this.$nextTick(() => this.scrollToBottom());
+      realtime.send('chat_message', {
         refType: this.refType,
         refId: String(this.refId),
-        text,
+        text: content,
         fromUserId: String(userId),
-        fromName,
-      };
-      if (this.otherUserId) payload.toUserId = String(this.otherUserId);
-      realtime.send('chat_message', payload);
+        fromName: user.nickname || '我',
+        toUserId: this.otherUserId || undefined,
+      });
     },
+    sendText() {
+      const text = (this.inputText || '').trim();
+      if (!text) return;
+      this.inputText = '';
+      this.doSend(buildContent(MSG_TYPE.TEXT, { text }));
+    },
+    fetchHistory() {
+      const store = appStore();
+      const myId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync('userId');
+      if (!myId) return;
+      apiService.getChatMessages({ refType: this.refType, refId: this.refId, otherUserId: this.otherUserId || undefined })
+        .then((res) => {
+          const data = res?.data ?? res;
+          const list = data?.list ?? (Array.isArray(data) ? data : []);
+          this.messages = list.map((m) => {
+            const content = m.content || m.text || '';
+            const parsed = parseContent(content);
+            const msg = {
+              text: parsed.text,
+              fromName: '',
+              fromUserId: String(m.fromUserId),
+              ts: m.createTime,
+              isSelf: String(myId) === String(m.fromUserId),
+              ...parsed,
+            };
+            if (msg.isVoice && msg.voiceUrl) {
+              msg._voiceUrl = this.ensureAbsoluteUrl(msg.voiceUrl);
+              msg.voiceUrl = msg._voiceUrl || msg.voiceUrl;
+            }
+            return msg;
+          });
+          this.$nextTick(() => this.scrollToBottom());
+        })
+        .catch(() => {});
+    },
+    onScrollUpper() {},
     scrollToBottom() {
       if (!this.messages.length) return;
       this.scrollIntoId = 'msg-' + (this.messages.length - 1);
@@ -210,140 +685,430 @@ export default {
 
 <style lang="scss" scoped>
 .chat-panel {
-  flex: 1;
+  height: 100%;
+  min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
-  background: #f5f5f7;
-  position: relative;
+  background: #ededed;
+  box-sizing: border-box;
+  overflow: hidden;
 }
+
+/* 仅消息列表区域可滚动：用绝对定位给 scroll-view 明确高度（小程序里 flex+100% 常不生效） */
+.chat-list-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
 .chat-list {
-  flex: 1;
-  padding: 16px 16px 80px;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 12px 16px;
+  padding-bottom: 80px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+.list-inner {
+  min-height: 100%;
+  width: 100%;
   box-sizing: border-box;
 }
-.chat-item-row {
+
+.msg-row {
+  margin-bottom: 16px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.msg-row.self {
+  align-items: flex-end;
+}
+
+/* 时间居中（微信样式：整行居中，独立一行） */
+.msg-time {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+/* 对方：头像左 + 内容右，整行靠左 */
+.msg-body {
   display: flex;
   align-items: flex-start;
+  flex-direction: row;
   justify-content: flex-start;
-  margin-bottom: 12px;
+  max-width: 85%;
 }
-.chat-item-row.self {
-  flex-direction: row-reverse;
+
+/* 自己：内容左 + 头像右，整行靠右（微信样式） */
+.msg-row.self .msg-body {
+  flex-direction: row;
+  justify-content: flex-end;
 }
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #00c777;
+
+.msg-body .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: #e0e0e0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 8px;
+  flex-shrink: 0;
+  margin-right: 10px;
 }
-.chat-item-row.self .avatar {
+
+.msg-body .avatar.self {
   margin-right: 0;
-  margin-left: 8px;
-  background: #c7c7cc;
+  margin-left: 10px;
+  background: #07c160;
 }
-.avatar-text {
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  display: block;
+  background: #e0e0e0;
+}
+
+.avatar-txt {
   color: #fff;
   font-size: 16px;
   font-weight: 600;
 }
-.chat-bubble {
+
+.bubble-wrap {
   max-width: 70%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #f7f7f7;
-  display: flex;
-  align-items: center;
+  min-width: 60px;
 }
-.chat-item-row.self .chat-bubble {
-  background: #d2f5c4;
-}
-.chat-text {
-  flex: 1;
-  color: #111;
-  word-break: break-all;
-  line-height: 1.45;
-}
-.bubble-avatar {
-  width: 28px;
-  height: 28px;
+
+
+.bubble {
+  padding: 10px 14px;
   border-radius: 4px;
-  background: #c7c7cc;
-  margin-left: 8px;
+  font-size: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+.bubble.self {
+  background: #95ec69;
+}
+
+.bubble-text {
+  color: #1a1a1a;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.bubble-location {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  color: #07c160;
 }
-.row-time {
-  margin-left: 8px;
+
+.location-addr {
+  font-size: 14px;
+  color: #333;
+  flex: 1;
+}
+
+.bubble-voice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666;
+}
+
+.voice-dur {
+  font-size: 14px;
+}
+
+.bubble-img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 4px;
+  display: block;
+}
+
+.bubble-video-wrap {
+  max-width: 200px;
+  max-height: 180px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+}
+.bubble-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.voice-hint {
   font-size: 11px;
   color: #999;
-  align-self: center;
+  margin-left: 4px;
 }
-.chat-empty {
+
+.empty-tip {
   text-align: center;
-  color: #999;
-  font-size: 14px;
-  padding: 24px 0;
-}
-
-.floating-btn {
-  position: absolute;
-  right: 16px;
-  bottom: 72px;
-  padding: 4px 12px;
-  font-size: 12px;
-  color: #1677ff;
-  background-color: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.12);
-}
-
-.chat-input-bar {
+  padding: 40px 20px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 8px 12px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
   gap: 8px;
-  background: #ffffff;
-  border-top: 1px solid #e0e0e0;
 }
-.icon-btn {
-  width: 32px;
+.empty-main {
+  color: #666;
+  font-size: 15px;
+}
+.empty-hint {
+  color: #999;
+  font-size: 12px;
+}
+
+/* 表情面板 */
+.emoji-panel {
+  flex-shrink: 0;
+  height: 260px;
+  background: #f7f7f7;
+  border-top: 1px solid #e7e7e7;
+  padding: 8px 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+.emoji-scroll {
+  height: 100%;
+}
+
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 8px;
+}
+
+.emoji-item {
+  width: 12.5%;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 28px;
 }
-.input-wrapper {
-  flex: 1;
-  background-color: #f5f5f7;
-  border-radius: 20px;
-  padding: 4px 10px;
+
+/* 更多面板：留出固定输入栏高度，避免被遮挡 */
+.more-panel {
+  flex-shrink: 0;
+  min-height: 200px;
+  background: #f7f7f7;
+  border-top: 1px solid #e7e7e7;
+  padding: 16px 12px;
+  padding-bottom: calc(16px + 52px + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
-.text-input {
+
+.more-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 24px;
+  justify-content: flex-start;
+  align-content: flex-start;
+}
+
+.more-item {
+  width: 72px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.more-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.more-label {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.2;
+}
+
+/* 输入栏：固定贴底，留出安全区 */
+.input-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  flex-shrink: 0;
+  background: #f7f7f7;
+  border-top: 1px solid #e7e7e7;
+  padding: 8px 12px;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.input-bar-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.voice-touch {
+  flex: 1;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  font-size: 15px;
+  color: #333;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.input-wrap {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  background: #fff;
+  border-radius: 4px;
+  padding: 0 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.text-inp {
   width: 100%;
-  font-size: 14px;
+  height: 100%;
+  font-size: 16px;
+  color: #333;
 }
-.input-placeholder {
-  color: #b3b3b3;
+
+.inp-placeholder {
+  color: #b2b2b2;
 }
+
 .send-btn {
+  flex-shrink: 0;
   margin: 0;
-  height: 30px;
-  line-height: 30px;
-  padding: 0 10px;
+  padding: 0 14px;
+  height: 36px;
+  line-height: 36px;
+  font-size: 15px;
+  color: #fff;
+  background: #c6c6c6;
+  border-radius: 4px;
+  border: none;
+}
+
+.send-btn::after {
+  border: none;
+}
+
+.send-btn.active {
+  background: #07c160;
+}
+
+/* 对方实时位置浮层 */
+.live-location-overlay {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 320px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.live-location-header {
+  flex-shrink: 0;
+  padding: 12px 12px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.live-location-title {
   font-size: 14px;
+  color: #333;
+}
+.live-location-close {
+  width: 28px;
+  height: 28px;
+  text-align: center;
+  line-height: 28px;
+  font-size: 22px;
+  color: #999;
+}
+.live-location-map {
+  flex: 1;
+  width: 100%;
+  min-height: 260px;
+}
+
+/* 自己正在共享：底部条 */
+.live-location-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
   background: #07c160;
   color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 999;
+}
+.live-location-bar-text {
+  font-size: 15px;
+}
+.live-location-end-btn {
+  padding: 6px 16px;
+  font-size: 14px;
+  color: #07c160;
+  background: #fff;
+  border: none;
   border-radius: 4px;
 }
-.send-btn[disabled] {
-  background: #cfcfcf;
+.live-location-end-btn::after {
+  border: none;
 }
 </style>
-

@@ -15,6 +15,10 @@ export class CommentsService {
     private cryptoService: CryptoService,
   ) {}
 
+  async getCount(refType: string, refId: string): Promise<number> {
+    return this.commentRepository.count({ where: { refType, refId } });
+  }
+
   async findByRef(
     refType: string,
     refId: string,

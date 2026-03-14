@@ -18,10 +18,11 @@
               :src="getFileViewUrl(m.value) || '/static/default_machine.png'"
               mode="aspectFill"
               class="banner-img"
+              @click="previewBannerImage(idx)"
             />
-            <view v-else class="banner-video-wrap" @click.stop>
-              <video id="banner-video-demand" class="banner-img" :src="getFileViewUrl(m.value)" autoplay muted controls />
-              <view class="video-badge">视频</view>
+            <view v-else class="banner-video-wrap" @click="playBannerVideoFullscreen(idx)">
+              <video :id="'banner-video-demand-' + idx" class="banner-img" :src="getFileViewUrl(m.value)" :show-center-play-btn="true" controls object-fit="contain" />
+              <view class="video-badge">点击全屏观看</view>
             </view>
           </swiper-item>
         </swiper>
@@ -78,15 +79,22 @@
 
       <!-- 底部操作 -->
       <view class="footer-bar">
-        <button class="btn-contact" @click="goChat">实时聊天</button>
-        <button
-          v-if="demand.status === '1' && !isMyDemand"
-          type="primary"
-          class="btn-order"
-          @click="goTakeOrder"
-        >
-          接单（发起合同）
-        </button>
+        <template v-if="isMyDemand">
+          <button v-if="isOnShelf(demand.status)" class="btn-contact" @click="offShelfDemand">下架</button>
+          <button v-else class="btn-contact" @click="onShelfDemand">上架</button>
+          <button type="primary" class="btn-order" @click="goDemandEdit">编辑</button>
+        </template>
+        <template v-else>
+          <button class="btn-contact" @click="goChat">跟需求方聊天</button>
+          <button
+            v-if="isOnShelf(demand.status)"
+            type="primary"
+            class="btn-order"
+            @click="goTakeOrder"
+          >
+            接单（发起合同）
+          </button>
+        </template>
       </view>
     </template>
     <view v-else class="empty">需求不存在或已下架</view>
@@ -97,6 +105,7 @@
 <script>
 import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
+import { PublishStatus, RefType, isOnShelf, DemandStatus } from '@/common/util/constants';
 import { useDictOne } from '@/hooks/useDict';
 import { formatDemandMachineTypes, formatDemandDateRange } from '@/common/util/util.js';
 import { DemandDateUnlimited } from '@excavator/utils';
@@ -113,7 +122,11 @@ export default {
       loading: true,
       showUpdateTip: false,
       offRealtime: null,
-      dictOptions: { machine_types: useDictOne('machine_types') },
+      currentBannerIndex: 0,
+      dictOptions: {
+        machine_types: useDictOne('machine_types'),
+        work_hours_unit: useDictOne('work_hours_unit'),
+      },
     };
   },
   computed: {
@@ -134,22 +147,22 @@ export default {
     },
     statusText() {
       const s = this.demand.status;
-      if (s === '0') return '已关闭';
-      if (s === '2') return '已完成';
+      if (s === PublishStatus.OFF_SHELF) return '已关闭';
+      if (s === DemandStatus.COMPLETED) return '已完成';
       return '进行中';
     },
     isMyDemand() {
       const uid = (appStore().state.userInfo || {}).id || uni.getStorageSync('userId');
-      return String(this.demand.userId) === String(uid);
+      return !!(this.demand.userId && uid && String(this.demand.userId) === String(uid));
     },
   },
   onLoad(options) {
     if (options.id) {
       this.demandId = String(options.id);
       this.fetchDetail(this.demandId);
-      realtime.subscribe('demand', this.demandId);
+      realtime.subscribe(RefType.DEMAND, this.demandId);
       this.offRealtime = realtime.on((event, data) => {
-        if (event === 'content_updated' && data && data.refType === 'demand' && String(data.refId) === this.demandId) {
+        if (event === 'content_updated' && data && data.refType === RefType.DEMAND && String(data.refId) === this.demandId) {
           this.showUpdateTip = true;
         }
         if (event === 'reconnected') {
@@ -160,7 +173,7 @@ export default {
     } else this.loading = false;
   },
   onUnload() {
-    if (this.demandId) realtime.unsubscribe('demand', this.demandId);
+    if (this.demandId) realtime.unsubscribe(RefType.DEMAND, this.demandId);
     if (this.offRealtime) this.offRealtime();
     this.offRealtime = null;
   },
@@ -175,11 +188,33 @@ export default {
     },
     onBannerSwiperChange(e) {
       const items = this.mediaItems(this.demand);
-      const videoIdx = items.findIndex((m) => m.type === 'video');
-      if (videoIdx >= 0 && e.detail.current !== videoIdx) {
-        const ctx = uni.createVideoContext('banner-video-demand', this);
+      const oldIdx = this.currentBannerIndex;
+      if (oldIdx >= 0 && items[oldIdx] && items[oldIdx].type === 'video') {
+        const ctx = uni.createVideoContext('banner-video-demand-' + oldIdx, this);
         if (ctx && ctx.pause) ctx.pause();
       }
+      this.currentBannerIndex = e.detail.current;
+    },
+    /** 轮播视频点击全屏播放（传入当前 swiper 下标，保证操作的是当前可见视频） */
+    playBannerVideoFullscreen(idx) {
+      const ctx = uni.createVideoContext('banner-video-demand-' + idx, this);
+      if (!ctx) return;
+      if (ctx.requestFullScreen) {
+        ctx.requestFullScreen({ direction: 0 });
+      } else {
+        ctx.play();
+      }
+    },
+    /** 轮播图点击查看大图（仅图片，视频不预览） */
+    previewBannerImage(swiperIndex) {
+      const items = this.mediaItems(this.demand);
+      const imageItems = items.filter((m) => m.type === 'image');
+      if (!imageItems.length) return;
+      const urls = imageItems.map((m) => getFileViewUrl(m.value)).filter(Boolean);
+      if (!urls.length) return;
+      const imageIndexInSwiper = items.slice(0, swiperIndex + 1).filter((m) => m.type === 'image').length - 1;
+      const current = urls[Math.max(0, imageIndexInSwiper)] || urls[0];
+      uni.previewImage({ urls, current });
     },
     fetchDetail(id) {
       this.loading = true;
@@ -206,11 +241,19 @@ export default {
       if (d instanceof Date) return d.toISOString().slice(0, 10);
       return '';
     },
+    budgetUnitLabel(item) {
+      const u = item && item.budgetUnit;
+      if (!u) return '元';
+      const arr = (this.dictOptions.work_hours_unit && this.dictOptions.work_hours_unit.value) || this.dictOptions.work_hours_unit || [];
+      const o = Array.isArray(arr) ? arr.find((d) => String(d.value) === String(u)) : null;
+      return o ? (o.text || o.label || '元') : '元';
+    },
     budgetText(item) {
+      const unit = this.budgetUnitLabel(item);
       if (item.budgetMin != null && item.budgetMax != null)
-        return item.budgetMin + '-' + item.budgetMax + '元';
-      if (item.budgetMin != null) return item.budgetMin + '元起';
-      if (item.budgetMax != null) return '≤' + item.budgetMax + '元';
+        return item.budgetMin + '-' + item.budgetMax + unit;
+      if (item.budgetMin != null) return item.budgetMin + unit + '起';
+      if (item.budgetMax != null) return '≤' + item.budgetMax + unit;
       return '面议';
     },
     openMap() {
@@ -236,8 +279,8 @@ export default {
     goChat() {
       if (!this.demand || !this.demand.id) return;
       const otherName = (this.demand.user && this.demand.user.nickname) || (this.demand.type === '2' ? '招聘方' : '需求方');
-      const title = otherName;
-      let url = '/pages/chat/index?refType=demand&refId=' + this.demand.id + '&title=' + encodeURIComponent(title);
+      const title = otherName; // 聊天页显示「跟XXX聊天」
+      let url = '/pages/chat/index?refType=' + RefType.DEMAND + '&refId=' + this.demand.id + '&title=' + encodeURIComponent(title);
       if (this.demand.userId) url += '&otherUserId=' + this.demand.userId;
       uni.navigateTo({ url });
     },
@@ -246,6 +289,28 @@ export default {
       uni.navigateTo({
         url: '/pages/contract/create?demandId=' + this.demand.id,
       });
+    },
+    goDemandEdit() {
+      if (this.demand.id) uni.navigateTo({ url: '/pages/demand/add?id=' + this.demand.id });
+    },
+    offShelfDemand() {
+      uni.showModal({
+        title: '提示',
+        content: '确定下架该需求吗？下架后不会在找活列表展示。',
+        success: (res) => {
+          if (!res.confirm) return;
+          apiService.updateDemand(this.demand.id, { status: PublishStatus.OFF_SHELF }).then(() => {
+            uni.showToast({ title: '已下架' });
+            this.fetchDetail(this.demandId);
+          }).catch((e) => uni.showToast({ title: e?.msg || '操作失败', icon: 'none' }));
+        },
+      });
+    },
+    onShelfDemand() {
+      apiService.updateDemand(this.demand.id, { status: PublishStatus.ON_SHELF }).then(() => {
+        uni.showToast({ title: '已上架' });
+        this.fetchDetail(this.demandId);
+      }).catch((e) => uni.showToast({ title: e?.msg || '操作失败', icon: 'none' }));
     },
   },
 };

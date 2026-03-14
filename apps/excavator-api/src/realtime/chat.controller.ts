@@ -48,5 +48,35 @@ export class ChatController {
     const list = await qb.getMany();
     return { list, total: list.length };
   }
+
+  /** 会话列表（微信式：按会话分组，每条会话取最新一条消息） */
+  @Get('conversations')
+  async listConversations(@Request() req: any) {
+    const userId = getRequiredUserId(req);
+    const all = await this.chatRepo
+      .createQueryBuilder('m')
+      .where('m.from_user_id = :me OR m.to_user_id = :me', { me: userId })
+      .orderBy('m.create_time', 'DESC')
+      .getMany();
+
+    const map = new Map<string, { refType: string; refId: string; otherUserId: string; lastContent: string; lastTime: Date }>();
+    for (const m of all) {
+      const other = String(m.fromUserId) === String(userId) ? (m.toUserId || '') : String(m.fromUserId);
+      const key = `${m.refType}:${m.refId}:${other}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          refType: m.refType,
+          refId: String(m.refId),
+          otherUserId: other,
+          lastContent: m.content,
+          lastTime: m.createTime,
+        });
+      }
+    }
+    const list = Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime(),
+    );
+    return { list, total: list.length };
+  }
 }
 

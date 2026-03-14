@@ -20,6 +20,7 @@ export class CreateDemandDto {
   endDate: string;
   budgetMin?: number;
   budgetMax?: number;
+  budgetUnit?: string; // dict: work_hours_unit
   description: string;
   images?: FileItemDto[]; // 至少1张，最多5张，每项 { fileId, fileName }
   video?: FileItemDto | string; // 选填，{ fileId, fileName } 或兼容旧 string

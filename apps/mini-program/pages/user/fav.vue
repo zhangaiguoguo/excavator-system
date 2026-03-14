@@ -92,6 +92,7 @@ import apiService, { getFileViewUrl } from '@/api/api';
 import appStore from '@/store/app';
 import { useDictOne } from '@/hooks/useDict';
 import { formatDemandMachineTypes } from '@/common/util/util.js';
+import { RefType } from '@/common/util/constants';
 
 export default {
   data() {
@@ -148,9 +149,9 @@ export default {
       return apiService.getFavorites(this.userId).then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res) || [];
         this.favList = list;
-        const machineIds = list.filter(f => f.refType === 'machine').map(f => f.refId);
-        const demandIds = list.filter(f => f.refType === 'demand').map(f => f.refId);
-        const jobIds = list.filter(f => f.refType === 'job').map(f => f.refId);
+        const machineIds = list.filter(f => f.refType === RefType.MACHINE).map(f => f.refId);
+        const demandIds = list.filter(f => f.refType === RefType.DEMAND).map(f => f.refId);
+        const jobIds = list.filter(f => f.refType === RefType.JOB).map(f => f.refId);
         return Promise.all([
           machineIds.length ? Promise.all(machineIds.map(id => apiService.getMachine(id))) : Promise.resolve([]),
           demandIds.length ? Promise.all(demandIds.map(id => apiService.getDemand(id))) : Promise.resolve([]),

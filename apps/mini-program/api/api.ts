@@ -163,6 +163,9 @@ class ApiServer {
 	getComments(refType: string, refId: string) {
 		return http.get('/comments', { params: { refType, refId } });
 	}
+	getCommentCount(refType: string, refId: string) {
+		return http.get('/comments/count', { params: { refType, refId: String(refId) } });
+	}
 	createComment(refType: string, refId: string, content: string) {
 		return http.post('/comments', { refType, refId, content });
 	}
@@ -188,6 +191,10 @@ class ApiServer {
 	// 聊天历史
 	getChatMessages(params: { refType: string; refId: string | number; otherUserId?: string }) {
 		return http.get('/chat/messages', { params });
+	}
+	/** 会话列表（微信式：每个会话最新一条） */
+	getChatConversations() {
+		return http.get('/chat/conversations');
 	}
 }
 

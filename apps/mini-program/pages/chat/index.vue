@@ -1,18 +1,18 @@
 <template>
-  <view class="page">
-    <!-- 顶部导航栏：返回 + 标题 + 更多 -->
-    <view class="nav-bar">
-      <view class="nav-left" @click="goBack">
-        <uni-icons type="back" size="20" color="#333" />
+  <view class="chat-page">
+    <!-- 上：标题栏 -->
+    <view class="chat-header">
+      <view class="header-left" @click="goBack">
+        <uni-icons type="back" size="22" color="#000" />
       </view>
-      <view class="nav-title">{{ pageTitle }}</view>
-      <view class="nav-right" @click="onMore">
-        <uni-icons type="more" size="20" color="#333" />
+      <view class="header-title">{{ pageTitle }}</view>
+      <view class="header-right" @click="onMore">
+        <uni-icons type="more" size="22" color="#000" />
       </view>
     </view>
 
-    <!-- 聊天内容区 -->
-    <view class="body">
+    <!-- 中：聊天内容区（占满剩余高度） -->
+    <view class="chat-body">
       <ChatPanel
         v-if="refType && refId"
         :refType="refType"
@@ -25,7 +25,6 @@
 
 <script>
 import ChatPanel from '@/components/ChatPanel.vue';
-import realtime from '@/common/service/realtime.js';
 
 export default {
   components: { ChatPanel },
@@ -34,70 +33,85 @@ export default {
       refType: '',
       refId: '',
       otherUserId: '',
-      pageTitle: 'uniCloud报警小助手',
+      pageTitle: '跟TA聊天',
     };
   },
   onLoad(options) {
-    const refType = options.refType || '';
-    const refId = options.refId || '';
-    const title = options.title || '';
-    const otherUserId = options.otherUserId || '';
-    this.refType = refType;
-    this.refId = refId;
-    this.otherUserId = otherUserId;
-    if (title) this.pageTitle = decodeURIComponent(title);
+    this.refType = options.refType || '';
+    this.refId = options.refId || '';
+    const name = (options.title && decodeURIComponent(options.title)) || '';
+    this.pageTitle = name ? '跟' + name + '聊天' : '跟TA聊天';
+    this.otherUserId = options.otherUserId || '';
   },
   methods: {
     goBack() {
       uni.navigateBack();
     },
-    onMore() {
-      // 预留“更多”操作入口
-    },
+    onMore() {},
   },
-  onUnload() {},
 };
 </script>
 
 <style lang="scss" scoped>
-.page {
-  min-height: 100vh;
-  background: #f5f6f8;
+.chat-page {
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: #ededed;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.nav-bar {
-  padding: 44px 16px 10px;
-  padding-top: calc(44px + constant(safe-area-inset-top));
-  padding-top: calc(44px + env(safe-area-inset-top));
-  background: #ffffff;
+.chat-header {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-bottom: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  background: #fff;
+  border-bottom: 1px solid #e7e7e7;
 }
 
-.nav-left,
-.nav-right {
-  width: 40px;
+.header-left,
+.header-right {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.nav-title {
+.header-title {
   flex: 1;
+  min-width: 0;
   text-align: center;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-all;
+  padding: 0 4px;
+  line-height: 1.35;
 }
 
-.body {
+.chat-body {
   flex: 1;
-  background: #f5f6f8;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 </style>
-
-      

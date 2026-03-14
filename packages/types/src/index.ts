@@ -74,3 +74,15 @@ export enum ServiceType {
     MACHINE_RENT = "machine_rent",
     DRIVER_JOB = "driver_job",
 }
+
+/** 发布物状态：上架/进行中 vs 下架/已关闭（设备、需求、揽活通用） */
+export enum PublishStatus {
+    OFF_SHELF = "0",
+    ON_SHELF = "1",
+}
+
+/** 内容引用类型（聊天、通知、订阅等） */
+export enum RefType {
+    MACHINE = "machine",
+    DEMAND = "demand",
+}

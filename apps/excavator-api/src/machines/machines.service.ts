@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Machine } from './machine.entity';
@@ -6,7 +6,7 @@ import { UsersService } from '../users/users.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { CreateMachineDto, FileItemDto } from './dto/create-machine.dto';
 import { UpdateMachineDto } from './dto/update-machine.dto';
-import { Constants } from '@excavator/types';
+import { Constants, PublishStatus } from '@excavator/types';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 function normalizeFileItem(
@@ -58,8 +58,12 @@ export class MachinesService {
     const pageSize = Math.min(50, Math.max(1, filters?.pageSize ?? 10));
     const qb = this.machinesRepository
       .createQueryBuilder('m')
-      .leftJoinAndSelect('m.user', 'user')
-      .where('m.status = :status', { status: '1' });
+      .leftJoinAndSelect('m.user', 'user');
+    if (filters?.userId) {
+      qb.andWhere('m.user_id = :userId', { userId: filters.userId });
+    } else {
+      qb.andWhere('m.status = :status', { status: PublishStatus.ON_SHELF });
+    }
     if (filters?.type) {
       const types = String(filters.type)
         .split(',')
@@ -85,8 +89,6 @@ export class MachinesService {
         .setParameter('districtOrder', filters.district)
         .addOrderBy('districtMatch', 'DESC');
     }
-    if (filters?.userId)
-      qb.andWhere('m.user_id = :userId', { userId: filters.userId });
     if (filters?.keyword) {
       qb.andWhere(
         '(m.model LIKE :kw OR m.brand LIKE :kw OR m.description LIKE :kw)',
@@ -195,6 +197,11 @@ export class MachinesService {
     updateMachineDto: UpdateMachineDto,
     updateByUserId?: string,
   ): Promise<Machine | null> {
+    const existing = await this.machinesRepository.findOne({ where: { id }, select: ['id', 'userId'] });
+    if (!existing) return null;
+    if (updateByUserId != null && String(existing.userId) !== String(updateByUserId)) {
+      throw new ForbiddenException('只能操作自己的设备');
+    }
     const payload = { ...updateMachineDto } as Record<string, unknown>;
     if (payload.rentStartDate)
       payload.rentStartDate = new Date(payload.rentStartDate as string);

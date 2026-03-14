@@ -38,8 +38,9 @@
                 <text class="chat-title">{{ session.title }}</text>
                 <text class="chat-time">{{ dateStr(session.lastTime) }}</text>
               </view>
-              <view class="chat-row">
-                <text class="chat-preview">{{ session.content }}</text>
+              <view class="chat-row chat-preview-row">
+                <text v-if="session.contentLabel" class="chat-type-tag">{{ session.contentLabel }}</text>
+                <text class="chat-preview">{{ session.contentPreview || '新消息' }}</text>
                 <view v-if="session.unreadCount > 0" class="chat-badge">
                   <text class="chat-badge-text">{{ session.unreadCount }}</text>
                 </view>
@@ -59,6 +60,9 @@
               <text class="title">{{ item.title }}</text>
               <text class="time">{{ dateStr(item.createTime) }}</text>
             </view>
+            <view v-if="item.typeLabel" class="card-type-row">
+              <text class="card-type-tag">{{ item.typeLabel }}</text>
+            </view>
             <text class="content" v-if="item.content">{{ item.content }}</text>
           </view>
         </template>
@@ -72,6 +76,8 @@
 <script>
 import apiService from '@/api/api';
 import appStore from '@/store/app';
+import { getMessagePreview } from '@/common/util/chatMessageTypes.js';
+import { RefType } from '@/common/util/constants';
 
 export default {
   data() {
@@ -96,16 +102,14 @@ export default {
       return (appStore().state.userInfo || {}).id || uni.getStorageSync('userId') || '';
     },
     displayList() {
-      if (this.activeTab === 'unread') {
-        return this.list.filter((n) => n.isRead === 0);
-      }
-      if (this.activeTab === 'chat') {
-        return this.list.filter((n) => n.type === 'chat_message');
-      }
-      if (this.activeTab === 'system') {
-        return this.list.filter((n) => n.type !== 'chat_message');
-      }
-      return this.list;
+      let arr = this.list;
+      if (this.activeTab === 'unread') arr = arr.filter((n) => n.isRead === 0);
+      else if (this.activeTab === 'chat') arr = arr.filter((n) => n.type === 'chat_message');
+      else if (this.activeTab === 'system') arr = arr.filter((n) => n.type !== 'chat_message');
+      return arr.map((n) => ({
+        ...n,
+        typeLabel: this.notificationTypeLabel(n.type),
+      }));
     },
     chatSessions() {
       const map = new Map();
@@ -115,6 +119,7 @@ export default {
         if (!n.refType || !n.refId) return;
         const exist = map.get(key);
         const time = n.createTime;
+        const { label, preview } = getMessagePreview(n.content || '');
         if (!exist) {
           map.set(key, {
             key,
@@ -122,6 +127,8 @@ export default {
             refId: n.refId,
             title: n.title || '聊天',
             content: n.content || '',
+            contentLabel: label,
+            contentPreview: preview || '新消息',
             lastTime: time,
             unreadCount: n.isRead === 0 ? 1 : 0,
             otherUserId: n.fromUserId || '',
@@ -130,6 +137,9 @@ export default {
           if (new Date(time) > new Date(exist.lastTime)) {
             exist.lastTime = time;
             exist.content = n.content || exist.content;
+            const latest = getMessagePreview(exist.content || '');
+            exist.contentLabel = latest.label;
+            exist.contentPreview = latest.preview || '新消息';
             exist.title = n.title || exist.title;
             if (n.fromUserId) exist.otherUserId = n.fromUserId;
           }
@@ -154,6 +164,17 @@ export default {
     this.fetch(true).finally(() => uni.stopPullDownRefresh());
   },
   methods: {
+    notificationTypeLabel(type) {
+      const map = {
+        chat_message: '聊天',
+        contract_invite: '订单邀请',
+        contract_signed: '订单签约',
+        contract_cancel: '订单取消',
+        contract_complete: '订单完成',
+        system: '系统通知',
+      };
+      return map[type] || (type ? '通知' : '');
+    },
     dateStr(d) {
       if (!d) return '';
       const date = typeof d === 'string' ? new Date(d) : d;
@@ -223,7 +244,7 @@ export default {
       }
       if (item.refType === 'contract' && item.refId) {
         uni.navigateTo({ url: '/pages/contract/detail?id=' + item.refId });
-      } else if ((item.refType === 'machine' || item.refType === 'demand') && item.refId) {
+      } else if ((item.refType === RefType.MACHINE || item.refType === RefType.DEMAND) && item.refId) {
         const title = encodeURIComponent(item.title || '聊天');
         let url = '/pages/chat/index?refType=' + item.refType + '&refId=' + item.refId + '&title=' + title;
         if (item.fromUserId) url += '&otherUserId=' + item.fromUserId;
@@ -320,10 +341,23 @@ export default {
   color: #999;
   margin-left: 8px;
 }
+.chat-preview-row {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.chat-type-tag {
+  font-size: 11px;
+  color: #4AB1F7;
+  background: rgba(74, 177, 247, 0.12);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
 .chat-preview {
   font-size: 13px;
   color: #666;
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -358,6 +392,16 @@ export default {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 6px;
+}
+.card-type-row {
+  margin-bottom: 4px;
+}
+.card-type-tag {
+  font-size: 11px;
+  color: #4AB1F7;
+  background: rgba(74, 177, 247, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 .title {
   font-size: 15px;

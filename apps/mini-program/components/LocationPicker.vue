@@ -10,10 +10,10 @@
 			</button>
 		</view>
 		<view class="location-desc">选点不限于当前位置，可在地图中搜索或移动选点</view>
-		<view class="form-row">
-			<uni-easyinput v-model="local.province" placeholder="省" @input="emitChange" />
-			<uni-easyinput v-model="local.city" placeholder="市" @input="emitChange" />
-			<uni-easyinput v-model="local.district" placeholder="区/县" @input="emitChange" />
+		<view class="form-row form-row-region">
+			<uni-easyinput v-model="local.province" placeholder="省" @input="emitChange" class="region-inp" />
+			<uni-easyinput v-model="local.city" placeholder="市" @input="emitChange" class="region-inp" />
+			<uni-easyinput v-model="local.district" placeholder="区/县" @input="emitChange" class="region-inp" />
 		</view>
 		<view class="mt-2">
 			<uni-easyinput v-model="local.address" placeholder="详细地址（街道、门牌等）" class="addr-input mt-2"
@@ -149,9 +149,17 @@
 		flex-wrap: wrap;
 	}
 
-	.form-row uni-easyinput {
-		flex: 1;
-		min-width: 80px;
+	/* 省市区分开放置，每行一个，手机端内容可完整显示 */
+	.form-row-region {
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.form-row-region .region-inp,
+	.form-row-region :deep(.uni-easyinput) {
+		width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
 	}
 
 	.addr-input {

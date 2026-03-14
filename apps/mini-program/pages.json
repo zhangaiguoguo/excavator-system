@@ -75,20 +75,20 @@
 		{
 			"path": "pages/contract/list",
 			"style": {
-				"navigationBarTitleText": "我的合同",
+				"navigationBarTitleText": "我的订单",
 				"enablePullDownRefresh": true
 			}
 		},
 		{
 			"path": "pages/contract/create",
 			"style": {
-				"navigationBarTitleText": "发起合同"
+				"navigationBarTitleText": "生成订单"
 			}
 		},
 		{
 			"path": "pages/contract/detail",
 			"style": {
-				"navigationBarTitleText": "合同详情"
+				"navigationBarTitleText": "订单详情"
 			}
 		},
 		{
@@ -131,10 +131,23 @@
 			}
 		},
     {
+      "path": "pages/chat/list",
+      "style": {
+        "navigationBarTitleText": "聊天记录",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/chat/index",
       "style": {
-        "navigationBarTitleText": "实时聊天",
+        "navigationBarTitleText": "聊天",
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/about/index",
+      "style": {
+        "navigationBarTitleText": "关于我们"
       }
     }
 	],

@@ -33,7 +33,7 @@
 						:clear-icon="false" />
 					<view class="checkbox-row">
 						<uni-data-checkbox v-model="form.isLongTerm" @change="rentDateRange=[]"
-							:localdata="[{ text: '长期可租', value: Constants.YES }]"></uni-data-checkbox>
+							:localdata="machineLongTermOptions"></uni-data-checkbox>
 					</view>
 				</uni-forms-item>
 				<uni-forms-item label="设备位置" required>
@@ -117,6 +117,7 @@
 				conditionOptions: useDictOne('machine_condition'),
 				machineTypeDict: useDictOne('machine_type'),
 				rentUnitOptions: useDictOne('work_hours_unit'),
+				machineLongTermOptions: useDictOne('machine_long_term'),
 				rules: {
 					type: {
 						rules: [{
@@ -213,9 +214,17 @@
 			},
 		},
 		onLoad(options) {
-			if (!this.userInfo?.id) {
-				this.$tip.alert("您还未登录系统！");
-				setTimeout(() => uni.navigateBack(), 1500);
+			const publishCheck = checkUserCanPublish(this.userInfo);
+			if (!publishCheck.can) {
+				this.$tip.confirm(publishCheck.message, true, {}, '提示').then(() => {
+					if (publishCheck.redirectPath) {
+						uni.navigateTo({ url: publishCheck.redirectPath });
+					} else {
+						uni.navigateBack();
+					}
+				}).catch(() => {
+					uni.navigateBack();
+				});
 				return;
 			}
 			if (options && options.id) {
@@ -259,7 +268,9 @@
 			submit() {
 				const publishCheck = checkUserCanPublish(this.userInfo);
 				if (!publishCheck.can) {
-					this.$tip.alert(publishCheck.message);
+					this.$tip.confirm(publishCheck.message + '，是否前往设置？', true, {}, '提示').then(() => {
+						if (publishCheck.redirectPath) uni.navigateTo({ url: publishCheck.redirectPath });
+					}).catch(() => {});
 					return;
 				}
 				this.$refs.formRef.validate().then(() => {

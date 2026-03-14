@@ -5,6 +5,7 @@ import { Contract } from './contract.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CryptoService } from '../common/crypto/crypto.service';
+import { SmsService } from '../sms/sms.service';
 
 @Injectable()
 export class ContractsService {
@@ -14,6 +15,7 @@ export class ContractsService {
     private notificationsService: NotificationsService,
     private cryptoService: CryptoService,
     private realtimeGateway: RealtimeGateway,
+    private smsService: SmsService,
   ) {}
 
   async findAll(
@@ -71,14 +73,16 @@ export class ContractsService {
     const saved = await this.contractsRepository.save(contract);
     const recipientId = saved.lessorId;
     if (recipientId) {
+      const msg = `订单号：${saved.contractNo}，请尽快确认。`;
       await this.notificationsService.create({
         userId: String(recipientId),
         type: 'order_create',
         title: '您有新的预约待确认',
-        content: `订单号：${saved.contractNo}，请尽快确认。`,
+        content: msg,
         refType: 'order',
         refId: String(saved.id),
       });
+      this.smsService.sendToUser(String(recipientId), msg).catch(() => {});
     }
     this.realtimeGateway.notifyContentUpdated('order', String(saved.id));
     return this.toSafeContract(saved);
@@ -111,14 +115,16 @@ export class ContractsService {
     await this.contractsRepository.save(contract);
 
     // 通知需求方
+    const confirmMsg = `订单号：${contract.contractNo} 已确认，请按约定时间服务。`;
     await this.notificationsService.create({
       userId: String(contract.lesseeId),
       type: 'order_confirm',
       title: '您的预约已被确认',
-      content: `订单号：${contract.contractNo} 已确认，请按约定时间服务。`,
+      content: confirmMsg,
       refType: 'order',
       refId: String(contract.id),
     });
+    this.smsService.sendToUser(String(contract.lesseeId), confirmMsg).catch(() => {});
     this.realtimeGateway.notifyContentUpdated('order', String(contract.id));
     return this.toSafeContract(contract);
   }
@@ -179,14 +185,16 @@ export class ContractsService {
       String(contract.lessorId) === String(userId)
         ? contract.lesseeId
         : contract.lessorId;
+    const completeMsg = `订单号：${contract.contractNo} 已完成，请知悉。`;
     await this.notificationsService.create({
       userId: String(otherUserId),
       type: 'order_complete',
       title: '订单已完成',
-      content: `订单号：${contract.contractNo} 已完成，请知悉。`,
+      content: completeMsg,
       refType: 'order',
       refId: String(contract.id),
     });
+    this.smsService.sendToUser(String(otherUserId), completeMsg).catch(() => {});
     this.realtimeGateway.notifyContentUpdated('order', String(contract.id));
     return this.toSafeContract(contract);
   }

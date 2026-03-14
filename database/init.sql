@@ -234,6 +234,26 @@ INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status,
 VALUES (1, '正常', '0', 'sys_normal_disable', '0', 'admin'),
        (2, '停用', '1', 'sys_normal_disable', '0', 'admin');
 
+-- 12.1 订单状态 (order_status) 设备租赁订单
+INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark)
+VALUES ('订单状态', 'order_status', '0', 'admin', '设备租赁订单状态');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by)
+VALUES (0, '待接单', '0', 'order_status', '0', 'admin'),
+       (1, '施工中', '1', 'order_status', '0', 'admin'),
+       (2, '已完成', '2', 'order_status', '0', 'admin'),
+       (3, '已取消', '3', 'order_status', '0', 'admin');
+
+-- 12.2 设备长期可租选项 (machine_long_term) 发布设备时“长期可租”
+INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark)
+VALUES ('长期可租', 'machine_long_term', '0', 'admin', '发布设备是否长期可租');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by)
+VALUES (1, '长期可租', 'Y', 'machine_long_term', '0', 'admin');
+
+-- 12.3 需求时间不限选项 (demand_long_term) 发布需求时“时间不限”
+INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark)
+VALUES ('时间不限', 'demand_long_term', '0', 'admin', '发布需求是否时间不限');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, status, create_by)
+VALUES (1, '时间不限', 'Y', 'demand_long_term', '0', 'admin');
 
 INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, remark)
 VALUES ('系统性别', 'sys_user_sex', '0', 'admin', '系统性别');
@@ -253,7 +273,7 @@ VALUES (1, '挖斗', '1', 'machine_types', '0', 'admin'),
        (5, '振动夯', '5', 'machine_types', '0', 'admin'),
        (6, '抓斗', '6', 'machine_types', '0', 'admin'),
        (7, '压路机', '7', 'machine_types', '0', 'admin'),
-       (8, '履带挖', '9', 'machine_types', '0', 'admin'),
+       (8, '履带挖', '10', 'machine_types', '0', 'admin'),
        (9, '其他', '8', 'machine_types', '0', 'admin');
 
 -- 用户表
@@ -335,6 +355,7 @@ CREATE TABLE t_demand
     end_date           DATE         NOT NULL COMMENT '结束日期',
     budget_min         DECIMAL(10, 2) COMMENT '预算下限',
     budget_max         DECIMAL(10, 2) COMMENT '预算上限',
+    budget_unit        VARCHAR(32)  DEFAULT NULL COMMENT '预算单位 (dict: work_hours_unit)',
     description        TEXT         NOT NULL COMMENT '需求描述',
     images             JSON COMMENT '图片URL数组，至少1张',
     video              VARCHAR(512) COMMENT '视频URL，选填',
@@ -524,4 +545,6 @@ CREATE TABLE IF NOT EXISTS t_notification
 -- ALTER TABLE t_demand ADD COLUMN video VARCHAR(512) COMMENT '视频URL' AFTER images;
 -- 若 t_demand 表已存在且无 machine_type_other 列，可执行：
 -- ALTER TABLE t_demand ADD COLUMN machine_type_other VARCHAR(200) DEFAULT NULL COMMENT '选「其他」设备时填写的说明' AFTER machine_types;
+-- 若 t_demand 表已存在且无 budget_unit 列，可执行：
+-- ALTER TABLE t_demand ADD COLUMN budget_unit VARCHAR(32) DEFAULT NULL COMMENT '预算单位 (dict: work_hours_unit)' AFTER budget_max;
 -- 若需新增评论表，可执行上面 t_comment 的 CREATE TABLE 语句。

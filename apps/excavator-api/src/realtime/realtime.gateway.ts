@@ -16,6 +16,7 @@ import { Order } from '../orders/order.entity';
 import { Machine } from '../machines/machine.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatMessage } from './chat-message.entity';
+import { RefType as RefTypeEnum } from '@excavator/types';
 
 type RefType = 'machine' | 'demand' | 'contract' | 'order';
 type SubscriptionKey = `${RefType}:${string}`;
@@ -74,7 +75,7 @@ export class RealtimeGateway
     if (!refType || !refId) {
       return { event: 'error', data: { message: 'refType/refId required' } };
     }
-    if (refType !== 'machine' && refType !== 'demand') {
+    if (refType !== RefTypeEnum.MACHINE && refType !== RefTypeEnum.DEMAND) {
       return { event: 'error', data: { message: 'refType not supported' } };
     }
     const key = `${refType}:${String(refId)}` as SubscriptionKey;
@@ -131,7 +132,7 @@ export class RealtimeGateway
         data: { message: 'refType/refId/text required' },
       };
     }
-    if (refType !== 'machine' && refType !== 'demand') {
+    if (refType !== RefTypeEnum.MACHINE && refType !== RefTypeEnum.DEMAND) {
       return { event: 'error', data: { message: 'refType not supported' } };
     }
     const fromUserId = body.fromUserId ? String(body.fromUserId) : undefined;
@@ -187,6 +188,87 @@ export class RealtimeGateway
     return { event: 'sent', data: { ok: true } };
   }
 
+  /** 实时共享位置：广播给同会话所有订阅者（含自己，便于多端同步） */
+  @SubscribeMessage('location_share')
+  handleLocationShare(
+    @MessageBody()
+    body: {
+      refType: RefType;
+      refId: string;
+      latitude: number;
+      longitude: number;
+      fromUserId?: string;
+      fromName?: string;
+      timestamp?: number;
+    },
+  ) {
+    const refType = body?.refType;
+    const refId = body?.refId;
+    if (!refType || !refId || body.latitude == null || body.longitude == null) {
+      return { event: 'error', data: { message: 'refType/refId/latitude/longitude required' } };
+    }
+    if (refType !== RefTypeEnum.MACHINE && refType !== RefTypeEnum.DEMAND) {
+      return { event: 'error', data: { message: 'refType not supported' } };
+    }
+    const key = `${refType}:${String(refId)}` as SubscriptionKey;
+    const clients = this.keyToClients.get(key);
+    if (clients && clients.size > 0) {
+      const payload = JSON.stringify({
+        event: 'location_share',
+        data: {
+          refType,
+          refId: String(refId),
+          latitude: Number(body.latitude),
+          longitude: Number(body.longitude),
+          fromUserId: body.fromUserId ? String(body.fromUserId) : undefined,
+          fromName: body.fromName || '用户',
+          timestamp: body.timestamp ?? Date.now(),
+        },
+      });
+      clients.forEach((c) => {
+        try {
+          c.send(payload);
+        } catch {
+          /* empty */
+        }
+      });
+    }
+    return { event: 'sent', data: { ok: true } };
+  }
+
+  /** 结束实时共享位置 */
+  @SubscribeMessage('location_share_end')
+  handleLocationShareEnd(
+    @MessageBody()
+    body: { refType: RefType; refId: string; fromUserId?: string },
+  ) {
+    const refType = body?.refType;
+    const refId = body?.refId;
+    if (!refType || !refId) {
+      return { event: 'error', data: { message: 'refType/refId required' } };
+    }
+    const key = `${refType}:${String(refId)}` as SubscriptionKey;
+    const clients = this.keyToClients.get(key);
+    if (clients && clients.size > 0) {
+      const payload = JSON.stringify({
+        event: 'location_share_end',
+        data: {
+          refType,
+          refId: String(refId),
+          fromUserId: body.fromUserId ? String(body.fromUserId) : undefined,
+        },
+      });
+      clients.forEach((c) => {
+        try {
+          c.send(payload);
+        } catch {
+          /* empty */
+        }
+      });
+    }
+    return { event: 'sent', data: { ok: true } };
+  }
+
   notifyContentUpdated(refType: RefType, refId: string) {
     const key = `${refType}:${String(refId)}`;
     const clients = this.keyToClients.get(key as SubscriptionKey);
@@ -223,12 +305,12 @@ export class RealtimeGateway
         if (fromUserId && String(toUserId) === String(fromUserId)) return;
         targetUserId = toUserId;
       } else {
-        if (refType === 'demand') {
+        if (refType === RefTypeEnum.DEMAND) {
           const demand = await this.ordersRepo.findOne({
             where: { id: refId },
           });
           if (demand) targetUserId = String(demand.userId);
-        } else if (refType === 'machine') {
+        } else if (refType === RefTypeEnum.MACHINE) {
           const machine = await this.machinesRepo.findOne({
             where: { id: refId },
           });

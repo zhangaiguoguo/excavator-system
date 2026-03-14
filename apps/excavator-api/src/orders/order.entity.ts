@@ -58,6 +58,10 @@ export class Order {
   @Column({ name: 'budget_max', type: 'decimal', precision: 10, scale: 2, nullable: true })
   budgetMax: number;
 
+  /** 预算单位 (dict: work_hours_unit) 元/天、元/小时等 */
+  @Column({ name: 'budget_unit', type: 'varchar', length: 32, nullable: true })
+  budgetUnit: string | null;
+
   @Column({ type: 'text' })
   description: string;
 

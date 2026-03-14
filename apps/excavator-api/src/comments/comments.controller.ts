@@ -14,6 +14,11 @@ import { getRequiredUserId } from '../common/get-user-id';
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
+  @Get('count')
+  getCount(@Query('refType') refType: string, @Query('refId') refId: string) {
+    return this.commentsService.getCount(refType || '', refId || '');
+  }
+
   @Get()
   findByRef(
     @Query('refType') refType: string,

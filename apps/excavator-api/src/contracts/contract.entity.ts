@@ -99,7 +99,15 @@ export class Contract {
   })
   serviceLocation: string | null;
 
-  /** 需求方备注 */
+  /** 工程内容 */
+  @Column({ name: 'project_content', length: 500, nullable: true, type: 'varchar' })
+  projectContent: string | null;
+
+  /** 工程规模 */
+  @Column({ name: 'project_scale', length: 200, nullable: true, type: 'varchar' })
+  projectScale: string | null;
+
+  /** 需求方备注（订单备注） */
   @Column({
     name: 'demand_remark',
     length: 500,

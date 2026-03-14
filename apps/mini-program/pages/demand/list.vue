@@ -207,6 +207,7 @@ export default {
       dictOptions: {
         demand_type: useDictOne('demand_type'),
         machine_types: useDictOne('machine_types'),
+        work_hours_unit: useDictOne('work_hours_unit'),
       },
       areaText: '',
     };
@@ -316,10 +317,18 @@ export default {
       if (d instanceof Date) return d.toISOString().slice(0, 10);
       return '';
     },
+    budgetUnitLabel(item) {
+      const u = item && item.budgetUnit;
+      if (!u) return '元';
+      const arr = (this.dictOptions.work_hours_unit && this.dictOptions.work_hours_unit.value) || this.dictOptions.work_hours_unit || [];
+      const o = Array.isArray(arr) ? arr.find((d) => String(d.value) === String(u)) : null;
+      return o ? (o.text || o.label || '元') : '元';
+    },
     budgetText(item) {
-      if (item.budgetMin != null && item.budgetMax != null) return item.budgetMin + '-' + item.budgetMax + '元';
-      if (item.budgetMin != null) return item.budgetMin + '元起';
-      if (item.budgetMax != null) return '≤' + item.budgetMax + '元';
+      const unit = this.budgetUnitLabel(item);
+      if (item.budgetMin != null && item.budgetMax != null) return item.budgetMin + '-' + item.budgetMax + unit;
+      if (item.budgetMin != null) return item.budgetMin + unit + '起';
+      if (item.budgetMax != null) return '≤' + item.budgetMax + unit;
       return '面议';
     },
     onSearch() {

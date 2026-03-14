@@ -32,23 +32,35 @@
             mode="aspectFill"
           />
           <view class="feed-overlay">
-            <view class="feed-tag">{{ item.source === 'machine' ? '找设备' : '需求' }}</view>
-            <view class="feed-title">{{ item.title }}</view>
-            <view class="feed-meta">
-              <text class="heat">热度 {{ item.heat }}</text>
-              <text v-if="item.location" class="loc">{{ item.location }}</text>
+            <view class="feed-info">
+              <view class="feed-tag">{{ item.source === 'machine' ? '找设备' : '需求' }}</view>
+              <view class="feed-title">{{ item.title }}</view>
+              <view class="feed-meta">
+                <text class="heat">热度 {{ item.heat }}</text>
+                <text v-if="item.location" class="loc">{{ item.location }}</text>
+              </view>
             </view>
-            <view class="feed-actions">
-              <button class="btn-comment" @click.stop="openComment(item)">评论</button>
-              <button class="btn-detail" @click="goDetail(item)">
-                {{ item.source === 'machine' ? '看设备' : '看需求' }}
-              </button>
+          </view>
+          <!-- 右侧竖排操作：评论、看详情 -->
+          <view class="feed-actions-right">
+            <view class="action-btn action-comment" @click.stop="openComment(item)">
+              <view class="action-icon-wrap">
+                <uni-icons type="chat" size="26" color="#fff" />
+              </view>
+              <text class="action-label">评论</text>
+              <text v-if="item.commentCount != null" class="action-count">{{ item.commentCount }}</text>
+            </view>
+            <view class="action-btn action-detail" @click="goDetail(item)">
+              <view class="action-icon-wrap">
+                <uni-icons :type="item.source === 'machine' ? 'list' : 'contact'" size="26" color="#fff" />
+              </view>
+              <text class="action-label">{{ item.source === 'machine' ? '看设备' : '看需求' }}</text>
             </view>
           </view>
         </view>
       </swiper-item>
     </swiper>
-    <uni-popup ref="commentPopup" type="bottom" background-color="#fff" border-radius="16 16 0 0">
+    <uni-popup ref="commentPopup" type="bottom" background-color="#fff" border-radius="16 16 0 0" @close="onCommentPopupClose">
       <view class="comment-popup-content" v-if="commentTarget">
         <view class="popup-title">评论</view>
         <CommentPanel :refType="commentTarget.source" :refId="commentTarget.id" />
@@ -219,6 +231,7 @@ export default {
             return (b.heat || 0) - (a.heat || 0);
           });
           this.feedList = merged;
+          this.$nextTick(() => this.fetchCommentCountForCurrent());
         })
         .catch(() => {})
         .finally(() => {
@@ -234,15 +247,37 @@ export default {
         if (ctx && ctx.pause) ctx.pause();
       }
       this.currentIndex = next;
+      this.fetchCommentCountForCurrent();
       if (this.feedList.length - this.currentIndex <= 3) {
         this.loadMoreFeed();
       }
+    },
+    fetchCommentCountForCurrent() {
+      const item = this.feedList[this.currentIndex];
+      if (!item || item.commentCount !== undefined) return;
+      apiService.getCommentCount(item.source, String(item.id)).then((res) => {
+        const n = res?.data ?? res;
+        const count = typeof n === 'number' ? n : (n && n.count != null ? n.count : 0);
+        this.$set(this.feedList[this.currentIndex], 'commentCount', count);
+      }).catch(() => {});
     },
     openComment(item) {
       this.commentTarget = { source: item.source, id: item.id };
       this.$nextTick(() => {
         this.$refs.commentPopup && this.$refs.commentPopup.open();
       });
+    },
+    onCommentPopupClose() {
+      if (this.commentTarget) this.fetchCommentCountForItem(this.commentTarget);
+    },
+    fetchCommentCountForItem(item) {
+      if (!item) return;
+      apiService.getCommentCount(item.source, String(item.id)).then((res) => {
+        const n = res?.data ?? res;
+        const count = typeof n === 'number' ? n : (n && n.count != null ? n.count : 0);
+        const idx = this.feedList.findIndex((f) => f.key === item.key);
+        if (idx >= 0) this.$set(this.feedList[idx], 'commentCount', count);
+      }).catch(() => {});
     },
     goDetail(item) {
       if (item.source === 'machine') {
@@ -296,12 +331,70 @@ export default {
 .feed-overlay {
   position: absolute;
   left: 0;
-  right: 0;
+  right: 60px;
   bottom: 0;
-  padding: 24px 16px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom));
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  padding: 16px 12px;
+  padding-bottom: 48px;
+  padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
   color: #fff;
+  pointer-events: none;
+}
+.feed-info {
+  pointer-events: auto;
+}
+.feed-actions-right {
+  position: absolute;
+  right: 14px;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  pointer-events: auto;
+}
+
+.action-btn {
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: saturate(180%) blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.action-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-comment .action-icon-wrap {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.action-detail .action-icon-wrap {
+  background: rgba(74, 177, 247, 0.85);
+}
+
+.action-label {
+  font-size: 12px;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.action-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
 }
 .feed-tag {
   display: inline-block;
@@ -327,29 +420,6 @@ export default {
 }
 .feed-meta .heat {
   margin-right: 12px;
-}
-.feed-actions {
-  display: flex;
-  gap: 10px;
-}
-.btn-comment {
-  flex: 1;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  font-size: 14px;
-  margin: 0;
-}
-.btn-detail {
-  flex: 1;
-  border-radius: 24px;
-  background: #4AB1F7;
-  color: #fff;
-  border: none;
-  font-size: 15px;
-  line-height: 44px;
-  height: 44px;
 }
 .comment-popup-content {
   padding: 16px;

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { CryptoService } from '../common/crypto/crypto.service';
 import { CreateDemandDto, FileItemDto } from './dto/create-demand.dto';
 import { UpdateDemandDto } from './dto/update-demand.dto';
+import { PublishStatus } from '@excavator/types';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 function normalizeFileItem(
@@ -73,8 +74,12 @@ export class OrdersService {
     const pageSize = Math.min(50, Math.max(1, filters?.pageSize ?? 10));
     const qb = this.ordersRepository
       .createQueryBuilder('d')
-      .leftJoinAndSelect('d.user', 'user')
-      .where('d.status = :status', { status: '1' });
+      .leftJoinAndSelect('d.user', 'user');
+    if (filters?.userId) {
+      qb.andWhere('d.user_id = :userId', { userId: filters.userId });
+    } else {
+      qb.andWhere('d.status = :status', { status: PublishStatus.ON_SHELF });
+    }
     if (filters?.type) {
       const types = String(filters.type)
         .split(',')
@@ -116,8 +121,6 @@ export class OrdersService {
       qb.andWhere('d.budget_min <= :budgetMax', {
         budgetMax: filters.budgetMax,
       });
-    if (filters?.userId)
-      qb.andWhere('d.user_id = :userId', { userId: filters.userId });
     if (filters?.isUrgent === 'Y')
       qb.andWhere('d.is_urgent = :isUrgent', { isUrgent: 'Y' });
     if (filters?.hasVideo === '1')
@@ -209,11 +212,12 @@ export class OrdersService {
       endDate: parseDateOrThrow(dto.endDate, 'endDate'),
       budgetMin: dto.budgetMin,
       budgetMax: dto.budgetMax,
+      budgetUnit: dto.budgetUnit?.trim() || null,
       description: dto.description,
       images,
       video,
       isUrgent: dto.isUrgent ?? 'N',
-      status: '1',
+      status: PublishStatus.ON_SHELF,
       createBy: userIdStr,
       updateBy: userIdStr,
     };
@@ -226,6 +230,11 @@ export class OrdersService {
     dto: UpdateDemandDto,
     updateByUserId?: string,
   ): Promise<Order | null> {
+    const existing = await this.ordersRepository.findOne({ where: { id }, select: ['id', 'userId'] });
+    if (!existing) return null;
+    if (updateByUserId != null && String(existing.userId) !== String(updateByUserId)) {
+      throw new ForbiddenException('只能操作自己的需求');
+    }
     const payload: Record<string, unknown> = { ...dto };
     if (dto.startDate) payload.startDate = new Date(dto.startDate);
     if (dto.endDate) payload.endDate = new Date(dto.endDate);

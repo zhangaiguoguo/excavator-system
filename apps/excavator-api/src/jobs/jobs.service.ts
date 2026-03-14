@@ -5,6 +5,7 @@ import { Job } from './job.entity';
 import { UsersService } from '../users/users.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { PublishStatus } from '@excavator/types';
 
 @Injectable()
 export class JobsService {
@@ -65,7 +66,7 @@ export class JobsService {
       workStartDate: new Date(dto.workStartDate),
       workEndDate: new Date(dto.workEndDate),
       isLongTerm: dto.isLongTerm ?? 'N',
-      status: '1',
+      status: PublishStatus.ON_SHELF,
       createBy: userIdStr,
       updateBy: userIdStr,
     };

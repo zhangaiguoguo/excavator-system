@@ -21,19 +21,24 @@
 						start-placeholder="开始日期" end-placeholder="结束日期" :clear-icon="false"
 						@change="onDateRangeChange" />
 					<view class="checkbox-row">
-						<uni-data-checkbox v-model="isLongTerm" :localdata="[{ text: '时间不限', value: Constants.YES }]"
+						<uni-data-checkbox v-model="isLongTerm" :localdata="demandLongTermOptions"
 							@change="onLongTermChange"></uni-data-checkbox>
 					</view>
 				</uni-forms-item>
 				<view class="form-row">
 					<view class="flex1">
-						<uni-forms-item label="预算下限(元)" name="budgetMin">
+						<uni-forms-item label="预算下限" name="budgetMin">
 							<uni-easyinput type="number" v-model="form.budgetMin" placeholder="选填"></uni-easyinput>
 						</uni-forms-item>
 					</view>
 					<view class="flex1">
-						<uni-forms-item label="预算上限(元)" name="budgetMax">
+						<uni-forms-item label="预算上限" name="budgetMax">
 							<uni-easyinput type="number" v-model="form.budgetMax" placeholder="选填"></uni-easyinput>
+						</uni-forms-item>
+					</view>
+					<view class="unit-wrap">
+						<uni-forms-item label="单位" name="budgetUnit">
+							<uni-data-select v-model="form.budgetUnit" :localdata="rentUnitOptions" placeholder="单位"></uni-data-select>
 						</uni-forms-item>
 					</view>
 				</view>
@@ -115,6 +120,7 @@
 					endDate: '',
 					budgetMin: '',
 					budgetMax: '',
+					budgetUnit: '',
 					description: '',
 					images: [],
 					video: '',
@@ -122,9 +128,10 @@
 				},
 				typeOptions: useDictOne('demand_type'),
 				machineTypeOptions: useDictOne('machine_types'),
-				// 补全设备类型：与后端 init.sql 一致，避免接口返回不全
 				defaultMachineTypeOptions: [],
 				sys_yes_no: useDictOne('sys_yes_no'),
+				demandLongTermOptions: useDictOne('demand_long_term'),
+				rentUnitOptions: useDictOne('work_hours_unit'),
 				rules: {
 					type: {
 						rules: [{
@@ -238,8 +245,21 @@
 		},
 		onLoad(options) {
 			const store = appStore();
-			this.form.userId = (store.state && store.state.userInfo && store.state.userInfo.id) || uni.getStorageSync(
-				'userId') || '';
+			const userInfo = (store.state && store.state.userInfo) || {};
+			this.form.userId = userInfo.id || uni.getStorageSync('userId') || '';
+			const publishCheck = checkUserCanPublish(userInfo);
+			if (!publishCheck.can) {
+				this.$tip.confirm(publishCheck.message, true, {}, '提示').then(() => {
+					if (publishCheck.redirectPath) {
+						uni.navigateTo({ url: publishCheck.redirectPath });
+					} else {
+						uni.navigateBack();
+					}
+				}).catch(() => {
+					uni.navigateBack();
+				});
+				return;
+			}
 			if (options && options.id) {
 				this.isEdit = true;
 				this.demandId = options.id;
@@ -284,6 +304,7 @@
 						this.form.endDate = data.endDate ? String(data.endDate).slice(0, 10) : '';
 						this.form.budgetMin = data.budgetMin != null ? String(data.budgetMin) : '';
 						this.form.budgetMax = data.budgetMax != null ? String(data.budgetMax) : '';
+						this.form.budgetUnit = data.budgetUnit || '';
 						let desc = data.description || '';
 						this.form.machineTypeOther = data.machineTypeOther;
 						this.form.description = desc;
@@ -314,7 +335,9 @@
 			submit() {
 				const publishCheck = checkUserCanPublish(this.userInfo);
 				if (!publishCheck.can) {
-					this.$tip.alert(publishCheck.message);
+					this.$tip.confirm(publishCheck.message + '，是否前往设置？', true, {}, '提示').then(() => {
+						if (publishCheck.redirectPath) uni.navigateTo({ url: publishCheck.redirectPath });
+					}).catch(() => {});
 					return;
 				}
 				this.$refs.formRef.validate().then(() => {
@@ -352,6 +375,7 @@
 						endDate: this.form.endDate,
 						budgetMin: this.form.budgetMin ? Number(this.form.budgetMin) : undefined,
 						budgetMax: this.form.budgetMax ? Number(this.form.budgetMax) : undefined,
+						budgetUnit: (this.form.budgetUnit || '').trim() || undefined,
 						description: this.form.description,
 						images: this.form.images,
 						video: this.form.video || undefined,
@@ -396,6 +420,10 @@
 
 	.flex1 {
 		flex: 1;
+	}
+	.unit-wrap {
+		min-width: 100px;
+		max-width: 120px;
 	}
 
 	.date-row {
